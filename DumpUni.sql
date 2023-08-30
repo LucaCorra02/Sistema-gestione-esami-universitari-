@@ -31,6 +31,8 @@ create type annoEsame as enum ('1','2','3');
 --tipo stato appello, esso potra essere aperto per le iscrizioni, fino ad un ora prima dell'esame oppure chiuso. 
 create type tipostatoAppello as enum('chiuso','aperto');
 
+ALTER database "postgres"
+SET TIMEZONE TO 'Europe/Berlin';
 
 --Creazione tabella Utenti 
 create table "UniNostra".Utente (
@@ -653,18 +655,26 @@ create table "UniNostra".PianoStudi(
 		tmpAppello "UniNostra".appello%rowtype; 
 		cdlS "UniNostra".studente.idCorso%type;
 		tmp "UniNostra".propedeuticita%rowtype;
+		h1 integer ;
+		h2 integer;
 	begin 
 		call "UniNostra".aggiornaStatoAppello(new.id);
 		select * into tmpAppello from "UniNostra".appello a where a.idappello = new.id;
 		if tmpAppello.statoAppello = 'chiuso' then 
 			raise exception 'appello % risulta chiuso',new.idappello;
 		end if;
-		if current_date = tmpAppello.dataEsame and  date_part('hour', tmpAppello.oraInizio) -  date_part('hour', now()::timestamp) <= 1 then 
+		
+		select extract into h1( hour from tmpAppello.oraInizio) as hour ;
+		select extract into h2( hour from now()) as hour;
+		
+		-- TESTARE DOMANI ORE raise exception '%',h1-h2;
+		if current_date = tmpAppello.dataEsame and h1-h2 <= 1 then 
 			raise exception 'lo studente non può iscriversi all^esame, manca meno di un ora all^inizio';
 		end if;
+		
 		select s.idcorso into cdlS from "UniNostra".studente s where s.matricola = new.matricola;
-		if tmpApello.cdl <> cdlS then 
-			raise exception 'lo studente % del cdl % non si può iscrivere all^appello %, in quanto riguarda il cdl %',new.matricola,cdlS,tmpAppello.id,tmpApello.cdl;	
+		if tmpAppello.cdl <> cdlS then 
+			raise exception 'lo studente % del cdl % non si può iscrivere all^appello %, in quanto riguarda il cdl %',new.matricola,cdlS,tmpAppello.idAppello,tmpAppello.cdl;	
 		end if;
 	
 		for tmp in select * from "UniNostra".propedeuticita p where p.codicelaurea = cdlS and p.esame = tmpAppello.codiceInsegnamento
@@ -676,30 +686,30 @@ create table "UniNostra".PianoStudi(
 				end if;
 			end loop;
 		return new;
+		
 		--CONTROLLO SE HA GIA UN VOTO ACCETTATO PER QUESTO ESAME
+		
 	end;
 	$$ LANGUAGE plpgsql;
 
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert or delete  on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
 
+	--finire testing 
 	select * from "UniNostra".appello a 
-	select * from "UniNostra".studente s  --id 1 corso fx101
-	call "UniNostra".inserisciIscrizioneEsame('1','7');
+	select * from "UniNostra".pianostudi p 
+	select * from "UniNostra".propedeuticita p 
+	
+	
+	call "UniNostra".inserimentoAppello('10','1','gamma+lambda','bho','2023/09/01','08:00:00','11:00:00','FX101');
+	
+	call "UniNostra".inserisciIscrizioneEsame('1','9');
 
-
+	select * from "UniNostra".iscrizioneesame i 
 
 
 
 --decadono le iscrizioni agli esami di un certo appello se supera un esame prima.
-
-
-
---lo studente si sta iscrivendo ad un esame che ha già superato
-
-
---controllo propredeuticità e se non ha già dato l'esame, esiste un voto accettato per quel esame 
-
 
 --Annullamento iscrizione di un esame.
 
