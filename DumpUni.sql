@@ -451,7 +451,7 @@ create table "UniNostra".PianoStudi(
 
 
 --Funzione per inserimento propredeuticità tra insegnamenti. Viene inserito per prima l'insegnamento a cui ci si vuole riferire e successivamente l'insegnamento propredeutico per il superamento del primo.
---la propredeuticitò vale per il corso di laurea specificato, in cui devono far parte entrambi gli insegnamenti.
+--la propredeuticità vale per il corso di laurea specificato, in cui devono far parte entrambi gli insegnamenti.
 --Parametri : Codice Insegnamento 1 (integer), Codice insegnamento 2 propredeutico (integer), codiceCDL (varchar)
 --Eccezzioni : Insegnamento 1 non esistente, insegnamento 2 non esistente. 
 --			   Se Codice1 = Codice2, gli insegnamenti devono essere diversi.
@@ -608,7 +608,59 @@ create table "UniNostra".PianoStudi(
 
 	--call "UniNostra".aggiornaStatoAppello('57');
 
+--Funzione per l'iscrizione di uno studente ad un esame. L'utente può iscriversi solo se l'appello non è chiuso (data passata) e fino ad un ora prima dell'esame.
+--un utente inoltre, può iscriversi solo agli esami previsti dal suo cdl. 
+--Parametri : idAppello(integer), matricola(integer)
+--Eccezioni : nessun studente con matricola inserita
+--			  nessun appello con id inserito 		  
 
+	create or replace procedure "UniNostra".inserisciIscrizioneEsame(
+		mat integer, idAppelloEsame integer 
+	)
+	as $$
+	declare
+		 cdl "UniNostra".studente.idcorso%type; 
+	begin 
+		perform * from "UniNostra".studente s where s.matricola = mat; 
+		if not exists then 
+			raise exception 'non esiste nessun studente con matricola %.',mat;
+		end if;
+		
+		perform * from "UniNostra".appello a where a.idappello = idAppelloEsame;
+		if not found then 
+			raise exception 'non esiste nessun appello con id %',idAppelloEsame;
+		end if; 
+
+		insert into "UniNostra".iscrizioneesame(matricola,id,votoesame,stato,islode)
+		values (mat,idAppelloEsame,default,default,default);
+	
+		--select s.idcorso into cdl from "UniNostra".studente s where s.matricola = mat;
+		--perform * from "UniNostra".appello a where a.idappello = idAppelloEsame and a.cdl = cdl;
+		--if not found then 
+			--raise exception 'lo studente % del cdl % non si può iscrivere all^appello %, in quanto riguarda il cdl %',mat,cdl,idAppelloEsame,		
+	end;
+	$$ language plpgsql;
+
+
+	
+
+
+
+
+
+
+
+
+--controllo propredeuticità e se non ha già dato l'esame, esiste un voto accettato per quel esame 
+
+
+--Annullamento iscrizione di un esame.
+
+--update stato appello
+
+-- check_insertesito: all'inserimento di un nuovo esito, verifico che il nuovo stato sia Iscritto e che lo studente 
+-- NON abbia già accetato un esito positivo per lo stesso insegnamento, sia del corso di laurea dell'insegnamento 
+-- e che abbia superato gli esami propedeutici a tale insegnamento
 
 --TRIGGER 
 
