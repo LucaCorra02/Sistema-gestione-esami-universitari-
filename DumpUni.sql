@@ -101,10 +101,6 @@ create table "UniNostra".Appello (
 	cdl varchar(10) references "UniNostra".corsodilaurea(codice) on delete cascade --aggiornare ER
 );
 
-drop table "UniNostra".appello 
-drop table "UniNostra".iscrizioneesame 
-drop table "UniNostra".storicovalutazioni 
-
 --Creazione del corso di laurea 
 create table "UniNostra".CorsoDiLaurea(
 	codice varchar(10) primary key check, 
@@ -577,11 +573,8 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 	
-	select * from "UniNostra".appello a inner join "UniNostra".insegnamento i on i.codice = a.codiceinsegnamento ;
-	select * from "UniNostra".pianostudi p 
 	--call "UniNostra".inserimentoAppello('6','gamma+lambda','bho','2023/08/31','13:10:00','15:15:00','FX101');
-	--call "UniNostra".inserimentoAppello('10','omega+gamma','bho','2023/08/31','12:50:00','15:15:00','FX102');
-	--call "UniNostra".inserimentoAppello('10','1','tau','bho','2023/08/23','14:10:00','15:15:00','FX102');
+	--call "UniNostra".inserimentoAppello('7','omega','bho','2023/08/31','10:50:00','15:15:00','FX101');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
 --Parametri  : idAppello (integer)
