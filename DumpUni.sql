@@ -91,7 +91,7 @@ create table "UniNostra".Propedeuticita (
 create table "UniNostra".Appello (
 	idAppello serial primary key, 
 	codiceInsegnamento integer references "UniNostra".Insegnamento(codice) on delete cascade,
-	responsabile integer references "UniNostra".Docente(idUtente)  on delete cascade,
+	--responsabile integer references "UniNostra".Docente(idUtente)  on delete cascade,
 	aula varchar(20) not null check(aula<>''),
 	note varchar(200), 
 	dataEsame DATE not null, 
@@ -100,6 +100,10 @@ create table "UniNostra".Appello (
 	statoAppello tipostatoAppello  not null default 'aperto', 
 	cdl varchar(10) references "UniNostra".corsodilaurea(codice) on delete cascade --aggiornare ER
 );
+
+drop table "UniNostra".appello 
+drop table "UniNostra".iscrizioneesame 
+drop table "UniNostra".storicovalutazioni 
 
 --Creazione del corso di laurea 
 create table "UniNostra".CorsoDiLaurea(
@@ -495,7 +499,7 @@ create table "UniNostra".PianoStudi(
 --			  Se l'aula è già occupata a quel ora
 
 	create or replace procedure "UniNostra".inserimentoAppello(
-		idIns integer, idDoc integer , al varchar(20), nt varchar(200), dataE date , oraIn time, oraFi time, codicel varchar(10)
+		idIns integer , al varchar(20), nt varchar(200), dataE date , oraIn time, oraFi time, codicel varchar(10)
 	)
 	as $$
 	declare 
@@ -504,16 +508,22 @@ create table "UniNostra".PianoStudi(
 		fin time ;
 		aulaE text;
 		aule text[];
+		ris bool; 
 	begin
-		perform * from "UniNostra".Insegnamento i where i.codice = idIns and i.iddocente = idDoc;
-		if not found then 
-			raise exception 'il docente con codice % non è responsabile dell insegnamento %',idDoc, idIns;
-		end if; 
+		--perform * from "UniNostra".Insegnamento i where i.codice = idIns and i.iddocente = idDoc;
+		--if not found then 
+			--raise exception 'il docente con codice % non è responsabile dell insegnamento %',idDoc, idIns;
+		--end if; 
 	
 		perform * from "UniNostra".corsodilaurea c where c.codice = codicel; 
 		if not found then 
 			raise exception 'non esiste nessuan laurea con codice %',codicel;
 		end if; 
+	
+		perform * from "UniNostra".pianostudi p where p.codiceinsegnamento = idIns and p.codicecorso = codicel;
+		if not found then 
+			raise exception 'il cdl % non prevede l insegnamento con codice %',codicel,idIns;
+		end if;
 	
 		if oraIn > oraFi then 
 			raise exception 'ora di fine % maggiore del ora di inzio %',oraFi,oraIn;
@@ -546,42 +556,33 @@ create table "UniNostra".PianoStudi(
 			loop 
 				ini = oldAppello.oraInizio;
 				fin = oldAppello.oraFine; 
-				--spostare qui controllo ore 
-				select into aule string_to_array(oldAppello.aula, '+');
-				foreach aulaE in array aule
-					loop
-						perform * from "UniNostra".appello as a where a.idappello <> oldAppello.idappello and 
-						( (a.orainizio  <= ini and a.orafine  >= fin)
-			   			   or (a.orainizio  >= ini and a.orafine  <= fin)
-			   		       or (a.orainizio  < ini and a.orafine  > ini)
-		       		       or (a.orainizio  < fin and a.orafine  > fin)
-				        ) and a.aula like  '%' || aulaE::varchar || '%';
-				       
-				       raise notice 'n % , % ',aulaE, oldAppello;
-				      	raise notice 'tipo % , %',pg_typeof(aulaE),pg_typeof(oldAppello.aula);
-				       
-				   		if found then 
-				   			raise notice 'aula % risulta già occupata nel orario % - %',aulaE,oraIn,oraFi;
-				   		end if;
-					end loop;
+				if ((oraIn <= ini and oraFi >= fin)
+			   		  or (oraIn >= ini and oraFi <= fin)
+			   		  or (oraIn < ini and oraFi > ini)
+		       		  or (oraIn < fin and oraFi > fin)
+				)then
+					select into aule string_to_array(oldAppello.aula, '+');
+					foreach aulaE in array aule
+						loop
+							perform * from "UniNostra".appello a where a.idappello = oldAppello.idappello and position(aulaE in al) > 0; 
+							if found then 
+								raise exception 'aula % già occupata nel orario % - % ', aulaE, ini, fin;
+							end if;
+						end loop;
+				end if;    
 			end loop;
 			
-		insert into "UniNostra".appello (codiceInsegnamento,responsabile,aula,note,dataesame,orainizio,orafine, statoappello,cdl)
-		values(idIns, idDoc,al,nt,dataE,oraIn,oraFi,default,codicel);
+		insert into "UniNostra".appello (codiceInsegnamento,aula,note,dataesame,orainizio,orafine, statoappello,cdl)
+		values(idIns,al,nt,dataE,oraIn,oraFi,default,codicel);
 	end;
 	$$language plpgsql;
 	
-	---testare aule + fare trigger
-	
-	call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/08/21','13:10:00','15:15:00','FX101');
-	call "UniNostra".inserimentoAppello('6','4','gamma','bho','2023/08/21','13:10:00','15:15:00','FX102');
-	
-	select * from "UniNostra".insegnamento i inner join "UniNostra".docente d on d.idutente = i.iddocente  
-	select * from "UniNostra".appello 
-	delete from "UniNostra".appello a 
+	select * from "UniNostra".appello a inner join "UniNostra".insegnamento i on i.codice = a.codiceinsegnamento ;
+	select * from "UniNostra".pianostudi p 
+	--call "UniNostra".inserimentoAppello('6','gamma+lambda','bho','2023/08/31','13:10:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('10','omega+gamma','bho','2023/08/31','12:50:00','15:15:00','FX102');
+	--call "UniNostra".inserimentoAppello('10','1','tau','bho','2023/08/23','14:10:00','15:15:00','FX102');
 
-	select 'gamma+lambda' like  '%' || "gamma" || '%'
-	
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
 --Parametri  : idAppello (integer)
 --Eccezzioni : se non esiste nessun appello con l'id inserito
@@ -613,7 +614,7 @@ create table "UniNostra".PianoStudi(
 	$$ language plpgsql;
 
 
-	--call "UniNostra".aggiornaStatoAppello('3');
+	--call "UniNostra".aggiornaStatoAppello('57');
 
 --TRIGGER 
 
@@ -707,9 +708,8 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER storicoInsegnamento BEFORE update on "UniNostra".insegnamento 
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".storicoInsegnamentiDocenti();
 
-	--select * from "UniNostra".insegnamento i 
-	--select * from "UniNostra".exinsegnamento e 
-	--call "UniNostra".updateDocenza('10','1');
+	update "UniNostra".insegnamento 
+
 
 --Trigger che permette di evitare inserimenti di propedeucità che causerebbero un ciclo, ad esempio : 
 --	A -> B, B -> C, C -> A
@@ -752,10 +752,30 @@ create table "UniNostra".PianoStudi(
 
 	--call "UniNostra".inserisciPropedeuticita('4','10','FX102');
 
---Trigger per verificare che non esistono già appelli di esami previsti nello stesso anno accademico di un cdl, previsti nella stessa data. 
---Action : inserimento di un appello nelal tabella degli appelli. 
+--Trigger per verificare che non esistino già appelli di esami previsti nello stesso anno accademico di un cdl, previsti nella stessa data. 
+--Action : inserimento di un appello nella tabella degli appelli. 
 --Eccezione : se esiste già un altro appello nella stessa data per un corso previsto nello stesso anno accademico di un certo cdl. 
 
-select *
-from "UniNostra".pianostudi p 
+	create or replace function "UniNostra".controllaAppelli()
+	returns trigger as $$
+	declare 
+		anno "UniNostra".pianostudi%rowtype;
+		annoNuovo annoEsame;
+	begin 
+		
+		select p.annoerogazione into annoNuovo from "UniNostra".pianostudi p 
+		where p.codiceinsegnamento = new.codiceInsegnamento and p.codicecorso = new.cdl;
+		
+		for anno in select p.codicecorso ,p.codiceinsegnamento ,p.annoerogazione from "UniNostra".appello a inner join "UniNostra".pianostudi p on a.codiceinsegnamento = p.codiceinsegnamento and a.cdl = p.codicecorso where a.dataesame = new.dataesame
+			loop 
+				if anno.codicecorso = new.cdl and anno.annoerogazione = annoNuovo then 
+					raise exception 'Esiste già un appello erogata in data %, per l^ insegnamento % del cdl % erogato nello stesso anno %',new.dataEsame,anno.codiceinsegnamento,anno.codicecorso,anno.annoerogazione;
+				end if;
+			end loop;
+		return new;
+	end;
+	$$ language plpgsql;
 
+	CREATE OR REPLACE TRIGGER controllaAppelli before insert on "UniNostra".appello 
+	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaAppelli();
+	
