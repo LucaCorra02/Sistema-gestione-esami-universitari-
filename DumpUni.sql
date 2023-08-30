@@ -495,7 +495,7 @@ create table "UniNostra".PianoStudi(
 --			  Se l'aula è già occupata a quel ora
 
 	create or replace procedure "UniNostra".inserimentoAppello(
-		idIns integer , al varchar(20), nt varchar(200), dataE date , oraIn time, oraFi time, codicel varchar(10)
+		idIns integer , idDoc integer, al varchar(20), nt varchar(200), dataE date , oraIn time, oraFi time, codicel varchar(10)
 	)
 	as $$
 	declare 
@@ -506,10 +506,10 @@ create table "UniNostra".PianoStudi(
 		aule text[];
 		ris bool; 
 	begin
-		--perform * from "UniNostra".Insegnamento i where i.codice = idIns and i.iddocente = idDoc;
-		--if not found then 
-			--raise exception 'il docente con codice % non è responsabile dell insegnamento %',idDoc, idIns;
-		--end if; 
+		perform * from "UniNostra".Insegnamento i where i.codice = idIns and i.iddocente = idDoc;
+		if not found then 
+			raise exception 'il docente con codice % non è responsabile dell insegnamento %',idDoc, idIns;
+		end if; 
 	
 		perform * from "UniNostra".corsodilaurea c where c.codice = codicel; 
 		if not found then 
@@ -573,8 +573,8 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 	
-	--call "UniNostra".inserimentoAppello('6','gamma+lambda','bho','2023/08/31','13:10:00','15:15:00','FX101');
-	--call "UniNostra".inserimentoAppello('7','omega','bho','2023/08/31','10:50:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/08/31','13:10:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('7','1','omega','bho','2023/08/31','10:50:00','15:15:00','FX101');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
 --Parametri  : idAppello (integer)
@@ -606,8 +606,9 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$ language plpgsql;
 
-
 	--call "UniNostra".aggiornaStatoAppello('57');
+
+
 
 --TRIGGER 
 
