@@ -660,27 +660,27 @@ create table "UniNostra".PianoStudi(
 	begin 
 		call "UniNostra".aggiornaStatoAppello(new.id);
 		select * into tmpAppello from "UniNostra".appello a where a.idappello = new.id;
-		if tmpAppello.statoAppello = 'chiuso' then 
-			raise exception 'appello % risulta chiuso',new.idappello;
-		end if;
-		
-		select extract into h1( hour from tmpAppello.oraInizio) as hour ;
-		select extract into h2( hour from now()) as hour;
-		
-		-- TESTARE DOMANI ORE raise exception '%',h1-h2;
-		if current_date = tmpAppello.dataEsame and h1-h2 <= 1 then 
-			raise exception 'lo studente non può iscriversi all^esame, manca meno di un ora all^inizio';
-		end if;
 		
 		select s.idcorso into cdlS from "UniNostra".studente s where s.matricola = new.matricola;
 		if tmpAppello.cdl <> cdlS then 
 			raise exception 'lo studente % del cdl % non si può iscrivere all^appello %, in quanto riguarda il cdl %',new.matricola,cdlS,tmpAppello.idAppello,tmpAppello.cdl;	
 		end if;
 	
+		if tmpAppello.statoAppello = 'chiuso' then 
+			raise exception 'appello % risulta chiuso',new.id;
+		end if;
+		
+		select extract into h1( hour from tmpAppello.oraInizio) as hour ;
+		select extract into h2( hour from now()) as hour;
+		if current_date = tmpAppello.dataEsame and h1-h2 <= 1 then 
+			raise exception 'lo studente non può iscriversi all^esame, manca meno di un ora all^inizio';
+		end if;
+		
 		for tmp in select * from "UniNostra".propedeuticita p where p.codicelaurea = cdlS and p.esame = tmpAppello.codiceInsegnamento
 			loop
 				perform * from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello 
-				where i.matricola = new.matricola and a.codiceinsegnamento = tmpAppello.codiceInsegnamento and i.stato <> 'Accettato';
+				where i.matricola = new.matricola and a.codiceinsegnamento = tmp.prop and i.stato <> 'Accettato';
+				--spostare if
 				if not found then 
 					raise exception 'lo studente % non si può iscrivere, in quanto non ha dato l^esame propedeutico %',new.matricola,tmp.prop;
 				end if;
@@ -692,8 +692,10 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$ LANGUAGE plpgsql;
 
-	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert or delete  on "UniNostra".iscrizioneesame  
+	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
+
+	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
 
 	--finire testing 
 	select * from "UniNostra".appello a 
@@ -702,11 +704,19 @@ create table "UniNostra".PianoStudi(
 	
 	
 	call "UniNostra".inserimentoAppello('10','1','gamma+lambda','bho','2023/09/01','08:00:00','11:00:00','FX101');
+	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
+	values('10','omega','bho','2023/08/30','11:40:00','13:00:00','chiuso','FX101');
+
+
+	call "UniNostra".inserisciIscrizioneEsame('1','6');
+
 	
-	call "UniNostra".inserisciIscrizioneEsame('1','9');
 
-	select * from "UniNostra".iscrizioneesame i 
-
+	select * from "UniNostra".iscrizioneesame i
+	delete from "UniNostra".iscrizioneesame i2 
+	
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('1','11','27','Accettato',false);
 
 
 --decadono le iscrizioni agli esami di un certo appello se supera un esame prima.
