@@ -679,7 +679,7 @@ create table "UniNostra".PianoStudi(
 		for tmp in select * from "UniNostra".propedeuticita p where p.codicelaurea = cdlS and p.esame = tmpAppello.codiceInsegnamento
 			loop
 				perform * from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello 
-				where i.matricola = new.matricola and a.codiceinsegnamento = tmp.prop and i.stato <> 'Accettato';
+				where i.matricola = new.matricola and a.codiceinsegnamento = tmp.prop and i.stato = 'Accettato';
 				--spostare if
 				if not found then 
 					raise exception 'lo studente % non si può iscrivere, in quanto non ha dato l^esame propedeutico %',new.matricola,tmp.prop;
@@ -703,17 +703,16 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".propedeuticita p 
 	
 	
-	call "UniNostra".inserimentoAppello('10','1','gamma+lambda','bho','2023/09/01','08:00:00','11:00:00','FX101');
+	call "UniNostra".inserimentoAppello('4','1','gamma+lambda','bho','2023/09/03','12:00:00','15:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
 	values('10','omega','bho','2023/08/30','11:40:00','13:00:00','chiuso','FX101');
 
 
-	call "UniNostra".inserisciIscrizioneEsame('1','6');
+	call "UniNostra".inserisciIscrizioneEsame('1','13');
 
-	
 
 	select * from "UniNostra".iscrizioneesame i
-	delete from "UniNostra".iscrizioneesame i2 
+	--delete from "UniNostra".iscrizioneesame i2
 	
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
 	values('1','11','27','Accettato',false);
@@ -723,7 +722,7 @@ create table "UniNostra".PianoStudi(
 
 --Annullamento iscrizione di un esame.
 
---update stato appello
+--update stato appello da chiamare ogni volta che lo studente refresha la pagine delle iscrizioni
 
 -- check_insertesito: all'inserimento di un nuovo esito, verifico che il nuovo stato sia Iscritto e che lo studente 
 -- NON abbia già accetato un esito positivo per lo stesso insegnamento, sia del corso di laurea dell'insegnamento 
