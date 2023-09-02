@@ -634,21 +634,29 @@ create table "UniNostra".PianoStudi(
 		end if; 
 
 		insert into "UniNostra".iscrizioneesame(matricola,id,votoesame,stato,islode)
-		values (mat,idAppelloEsame,default,default,default);
-	
-			
+		values (mat,idAppelloEsame,default,default,default);			
 	end;
 	$$ language plpgsql;
+
+--Funzione che permette ad uno studente di accettare o rifiutare l'esito di un appello per un certo insegnamento.
+--l'accetazione viene richiesta all'utente tramite una variabile booleana se è false l'esito è accettato altrimenti l'esito è rifiutato.
+--Parametri : idAppello (integer), matricola(integer), accettato (bool)
+--Eccezioni : lo studente non è iscritto all'appello d'esame
+--			  la sua iscrizione deve essere inAttesa e l'appello deve essere chiuso
+
+
+
+
+
+--fixare il fatto ch ela chiusura degli appelli non si aggiorna 
+
+--uno studente può iscriversi solo ad un appello di un esame nella stessa giornata. 
 
 --Quando uno studente accetta un voto decadono le iscrizioni agli esami di un certo appello se supera un esame prima.
 
 --Annullamento iscrizione di un esame.
 
 --update stato appello da chiamare ogni volta che lo studente refresha la pagine delle iscrizioni
-
--- check_insertesito: all'inserimento di un nuovo esito, verifico che il nuovo stato sia Iscritto e che lo studente 
--- NON abbia già accetato un esito positivo per lo stesso insegnamento, sia del corso di laurea dell'insegnamento 
--- e che abbia superato gli esami propedeutici a tale insegnamento
 
 --TRIGGER 
 
