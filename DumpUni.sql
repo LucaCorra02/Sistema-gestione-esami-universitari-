@@ -724,11 +724,20 @@ create table "UniNostra".PianoStudi(
 
 	--call "UniNostra".elliminaIscrizione('1','14')
 
+--Funzione che permette ad un docente di registrare il risultato di un esame 
+--Parametri : idDocente(integer), matricola(integer),idAppello(integer), voto* (votoesame), lode (bool)
+--Eccezioni : Docente non responsabile dell'appello inserito.
+--			  L'appello deve essere chiuso.
+--			  La lode non può essere true se il voto non è 30.
+--			  lo studente deve essere iscritto all'appello.
+
+
+
+
+
+
+
 --fixare il fatto che la chiusura degli appelli non si aggiorna 
-
---Quando uno studente accetta un voto decadono le iscrizioni agli esami di un certo appello se supera un esame prima. sull'update
-
---Annullamento iscrizione di un esame.
 
 --registrazione del voto da parte del docente
 
