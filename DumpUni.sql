@@ -655,6 +655,7 @@ create table "UniNostra".PianoStudi(
 		status "UniNostra".appello.statoappello%type;
 		iscrizione "UniNostra".iscrizioneesame%rowtype;
 	begin 
+		call "UniNostra".aggiornaStatoAppello(idApp);
 		perform * from "UniNostra".IscrizioneEsame ie where ie.id = idApp and ie.matricola = mat;
 		if not found then 
 			raise exception 'lo studente non è iscritto all^appello %',idApp;
@@ -680,16 +681,56 @@ create table "UniNostra".PianoStudi(
 
 	--call "UniNostra".accettaVoto(11,1,true)
 
---fixare il fatto che la chiusura degli appelli non si aggiorna 
+--lo stato dello studente deve essere iscritto. 
 
---uno studente può iscriversi solo ad un appello di un esame nella stessa giornata. 
+--funzione che permette ad uno studente di disiscriversi da un appello a cui risulta iscritto
+--Parametri : matricola(integer), idAppello(integer)
+--Eccezioni : se lo studente non è iscritto all'appello inserito 
+--            se l'appello è chiuso o l'utente si disiscrive a meno di un ora dall'inizio. 
+
+	create or replace procedure "UniNostra".elliminaIscrizione(
+		mat integer, idApp integer 
+	)
+	as $$ 
+	declare
+		oraApp "UniNostra".appello.orainizio %type;
+		dataApp "UniNostra".appello.dataesame%type;
+		statoApp "UniNostra".appello.statoappello%type; 
+		h1 integer; 
+		h2 integer; 
+	begin 
+		call "UniNostra".aggiornaStatoAppello(idApp);
+		perform * from "UniNostra".iscrizioneEsame i where i.matricola = mat and i.id = idApp and i.stato = 'Iscritto';
+		if not found then 
+			raise exception 'lo studente % non risulta iscritto all^appello %',mat,idApp; 
+		end if; 
+
+		select a.statoappello , a.orainizio, a.dataesame into statoApp,oraApp,dataApp from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello 
+		where i.matricola = mat and i.id = idApp ;
+	
+		select extract into h1( hour from oraApp) as hour ; 
+		select extract into h2( hour from now()) as hour;
+		if statoApp <> 'aperto' then 
+			raise exception 'lo studente % non si può discrivere dall^appello %, in quanto è chiuso',mat,idApp;
+		end if;
+	
+		if cast(now() as date) = dataApp and h1 - h2 <= 1 then 
+			raise exception 'lo studente % non si può disiscrivere dall^appello % in quanto manca meno di un ora',mat,idApp;
+		end if; 
+		
+		delete from "UniNostra".iscrizioneesame i where i.matricola = mat and i.id = idApp; 
+	end
+	$$ language plpgsql;
+
+	--call "UniNostra".elliminaIscrizione('1','14')
+
+--fixare il fatto che la chiusura degli appelli non si aggiorna 
 
 --Quando uno studente accetta un voto decadono le iscrizioni agli esami di un certo appello se supera un esame prima. sull'update
 
 --Annullamento iscrizione di un esame.
 
-
---registrazione del voto da parte dello studente
+--registrazione del voto da parte del docente
 
 
 --TRIGGER 
@@ -944,7 +985,7 @@ create table "UniNostra".PianoStudi(
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaPassatoVoti();
 
 
---trigger che controlla che uno studente si possa iscrivere solo ad un turno di un esame durante la stessa giornata
+--Trigger che controlla che uno studente si possa iscrivere solo ad un turno di un esame durante la stessa giornata
 --Action : inserimento nella tabella iscrizioni esami 
 --Eccezioni : se lo studente risulta già isctitto ad un altro turno dello stesso esame durante la giornata
 
@@ -968,8 +1009,25 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER controllaTurniE BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaTurni();
 
+--Trigger, quando uno studente accetta un voto di un certo esame, viene automaticamente disiscritto da tutti gli altri appelli di quel esame a cui si era iscritto. 
+--Action : update di iscrizione studente
+--Eccezioni : 
+
+	create or replace function "UniNostra".disiscriviStudente()
+	returns trigger as $$
+	declare 
+	begin 
+		if old.stato = 'In attesa' and (new.stato = 'Accettato' or new.stato = 'Rifiutato') then 
+			
+			
+		
+		end if; 
+		return new;
+	end 
+	$$ language plpgsql;
 	
-	
+
+
 
 
 
@@ -987,6 +1045,8 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".iscrizioneesame i
 	update "UniNostra".iscrizioneesame i set stato = 'Rifiutato' where i.votoesame = '27'
 	--delete from "UniNostra".iscrizioneesame i2 where i2.id = 12
+	
+	update "UniNostra".appello a set orainizio = '16:00:00', orafine = '18:00:00' where a.idappello = 14
 	
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
 	values('1','11','27','Accettato',false);
