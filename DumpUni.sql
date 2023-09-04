@@ -667,7 +667,7 @@ create table "UniNostra".PianoStudi(
 			raise exception 'lo studente non può accettare o rifiutare il voto';
 		end if;
 		
-		if isRifiutato then 
+		if isRifiutato = true  then 
 			update "UniNostra".iscrizioneesame i
 			set stato = 'Rifiutato'
 			where i.id = idApp and i.matricola = mat; 
@@ -945,7 +945,7 @@ create table "UniNostra".PianoStudi(
 
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
-	--drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
+	
 
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
@@ -1011,42 +1011,54 @@ create table "UniNostra".PianoStudi(
 
 --Trigger, quando uno studente accetta un voto di un certo esame, viene automaticamente disiscritto da tutti gli altri appelli di quel esame a cui si era iscritto. 
 --Action : update di iscrizione studente
---Eccezioni : 
 
 	create or replace function "UniNostra".disiscriviStudente()
 	returns trigger as $$
-	declare 
+	declare
+		codIns "UniNostra".appello.codiceinsegnamento %type;
+		idApp "UniNostra".iscrizioneesame.id%type;
 	begin 
-		if old.stato = 'In attesa' and (new.stato = 'Accettato' or new.stato = 'Rifiutato') then 
-			
-			
-		
+		select a.codiceinsegnamento into codIns from "UniNostra".appello a where a.idappello = new.id;
+
+		if old.stato = 'In attesa' and new.stato = 'Accettato' then 
+			for idApp in select i.id from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello 
+			where i.id <> new.id and a.codiceinsegnamento = codIns and i.matricola = new.matricola and i.stato = 'Iscritto' or i.stato = 'In attesa'
+				loop 
+					delete from "UniNostra".iscrizioneesame i where i.matricola = new.matricola and i.id = idApp;
+				end loop ;
 		end if; 
 		return new;
 	end 
 	$$ language plpgsql;
 	
+	CREATE OR REPLACE TRIGGER elliminaIscrizioniPassate after update on "UniNostra".iscrizioneesame  
+	FOR EACH ROW EXECUTE FUNCTION "UniNostra".disiscriviStudente();
 
 
 
-
-
+	select * from "UniNostra".iscrizioneesame i 
 	select * from "UniNostra".appello a 
+	
+	update "UniNostra".iscrizioneesame i set votoesame = 20 , stato = 'In attesa' where i.id =12
+	
+	call "UniNostra".accettaVoto('12','1',false)
+	
+	
 	select * from "UniNostra".pianostudi p 
 	select * from "UniNostra".propedeuticita p 
 	
 	
-	call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/05','08:00:00','09:00:00','FX102');
+	call "UniNostra".inserimentoAppello('6','4','omega','bho','2023/09/06','08:00:00','09:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
-	values('10','omega','bho','2023/08/30','11:40:00','13:00:00','chiuso','FX101');
+	values('6','omega','bho','2023/08/04','11:40:00','13:00:00','chiuso','FX101');
 
-	call "UniNostra".inserisciIscrizioneEsame('1','19');
+	call "UniNostra".inserisciIscrizioneEsame('1','21');
 
 	select * from "UniNostra".iscrizioneesame i
-	update "UniNostra".iscrizioneesame i set stato = 'Rifiutato' where i.votoesame = '27'
+	update "UniNostra".iscrizioneesame i set stato = 'In attesa',votoesame = '30' where i.id = '21'
 	--delete from "UniNostra".iscrizioneesame i2 where i2.id = 12
 	
 	update "UniNostra".appello a set orainizio = '16:00:00', orafine = '18:00:00' where a.idappello = 14
 	
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('1','11','27','Accettato',false);
+	values('1','21','27','In attesa',false);
