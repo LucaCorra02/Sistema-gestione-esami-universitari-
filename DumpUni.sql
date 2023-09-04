@@ -844,7 +844,7 @@ create table "UniNostra".PianoStudi(
 		
 		for anno in select p.codicecorso ,p.codiceinsegnamento ,p.annoerogazione from "UniNostra".appello a inner join "UniNostra".pianostudi p on a.codiceinsegnamento = p.codiceinsegnamento and a.cdl = p.codicecorso where a.dataesame = new.dataesame
 			loop 
-				if anno.codicecorso = new.cdl and anno.annoerogazione = annoNuovo then 
+				if anno.codicecorso = new.cdl and anno.annoerogazione = annoNuovo and anno.codiceinsegnamento <> new.codiceInsegnamento  then 
 					raise exception 'Esiste già un appello erogata in data %, per l^ insegnamento % del cdl % erogato nello stesso anno %',new.dataEsame,anno.codiceinsegnamento,anno.codicecorso,anno.annoerogazione;
 				end if;
 			end loop;
@@ -944,20 +944,32 @@ create table "UniNostra".PianoStudi(
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaPassatoVoti();
 
 
---trigger che controlla che uno studente si possa iscrivere solo ad un turno di un esame durante una giornata 
+--trigger che controlla che uno studente si possa iscrivere solo ad un turno di un esame durante la stessa giornata
+--Action : inserimento nella tabella iscrizioni esami 
+--Eccezioni : se lo studente risulta già isctitto ad un altro turno dello stesso esame durante la giornata
 
 	create or replace function "UniNostra".controllaTurni()
 	returns trigger as $$
 	declare
-		dataApp "UniNostra".
+		cod "UniNostra".appello.cdl%type;
+		dataApp "UniNostra".appello.dataesame%type;
 	begin 
+		select a.dataesame , a.cdl into dataApp,cod from "UniNostra".appello a where a.idappello = new.id;
 		
-		perform * from "UniNostra".iscrizioneEsame i where i.matricola = new.matricola and i.id <> new.id 
+		perform * from "UniNostra".iscrizioneEsame i inner join "UniNostra".appello a on a.idappello = i.id 
+		where i.matricola = new.matricola and i.id <> new.id and a.dataesame = dataApp and a.cdl = cod;
+		if found then 
+			raise exception 'lo studente è già iscritto ad un altro turno nella stessa giornata';
+		end if;
+		return new;
 	end
 	$$ language plpgsql;
 	
-	
+	CREATE OR REPLACE TRIGGER controllaTurniE BEFORE insert on "UniNostra".iscrizioneesame  
+	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaTurni();
 
+	
+	
 
 
 
@@ -966,14 +978,14 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".propedeuticita p 
 	
 	
-	call "UniNostra".inserimentoAppello('10','1','gamma+lambda','bho','2023/09/04','12:00:00','15:00:00','FX101');
+	call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/05','08:00:00','09:00:00','FX102');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
 	values('10','omega','bho','2023/08/30','11:40:00','13:00:00','chiuso','FX101');
 
-	call "UniNostra".inserisciIscrizioneEsame('1','12');
+	call "UniNostra".inserisciIscrizioneEsame('1','19');
 
 	select * from "UniNostra".iscrizioneesame i
-	update "UniNostra".iscrizioneesame i set stato = 'Rifiutato' where i.votoesame = '18'
+	update "UniNostra".iscrizioneesame i set stato = 'Rifiutato' where i.votoesame = '27'
 	--delete from "UniNostra".iscrizioneesame i2 where i2.id = 12
 	
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
