@@ -579,6 +579,7 @@ create table "UniNostra".PianoStudi(
 	--call "UniNostra".inserimentoAppello('7','1','omega','bho','2023/08/31','10:50:00','15:15:00','FX101');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
+--update stato appello da chiamare ogni volta che lo studente refresha la pagine delle iscrizioni
 --Parametri  : idAppello (integer)
 --Eccezzioni : se non esiste nessun appello con l'id inserito
 
@@ -637,6 +638,8 @@ create table "UniNostra".PianoStudi(
 		values (mat,idAppelloEsame,default,default,default);			
 	end;
 	$$ language plpgsql;
+	
+	--call "UniNostra".inserisciIscrizioneEsame('1','14');
 
 --Funzione che permette ad uno studente di accettare o rifiutare l'esito di un appello per un certo insegnamento.
 --l'accetazione viene richiesta all'utente tramite una variabile booleana se è false l'esito è accettato altrimenti l'esito è rifiutato.
@@ -644,19 +647,50 @@ create table "UniNostra".PianoStudi(
 --Eccezioni : lo studente non è iscritto all'appello d'esame
 --			  la sua iscrizione deve essere inAttesa e l'appello deve essere chiuso
 
+	create or replace procedure "UniNostra".accettaVoto(
+		idApp integer, mat integer, isRifiutato bool
+	)
+	as $$ 
+	declare 
+		status "UniNostra".appello.statoappello%type;
+		iscrizione "UniNostra".iscrizioneesame%rowtype;
+	begin 
+		perform * from "UniNostra".IscrizioneEsame ie where ie.id = idApp and ie.matricola = mat;
+		if not found then 
+			raise exception 'lo studente non è iscritto all^appello %',idApp;
+		end if;
+		
+		select * into iscrizione from "UniNostra".IscrizioneEsame ie where ie.id = idApp and ie.matricola = mat;
+		select a.statoappello into status from "UniNostra".appello a where a.idappello = idApp ;
+		if status <> 'chiuso' or iscrizione.stato <> 'In attesa' then 
+			raise exception 'lo studente non può accettare o rifiutare il voto';
+		end if;
+		
+		if isRifiutato then 
+			update "UniNostra".iscrizioneesame i
+			set stato = 'Rifiutato'
+			where i.id = idApp and i.matricola = mat; 
+		else 
+			update "UniNostra".iscrizioneesame i
+			set stato = 'Accettato'
+			where i.id = idApp and i.matricola = mat; 
+		end if;
+	end;
+	$$language plpgsql;
 
+	--call "UniNostra".accettaVoto(11,1,true)
 
-
-
---fixare il fatto ch ela chiusura degli appelli non si aggiorna 
+--fixare il fatto che la chiusura degli appelli non si aggiorna 
 
 --uno studente può iscriversi solo ad un appello di un esame nella stessa giornata. 
 
---Quando uno studente accetta un voto decadono le iscrizioni agli esami di un certo appello se supera un esame prima.
+--Quando uno studente accetta un voto decadono le iscrizioni agli esami di un certo appello se supera un esame prima. sull'update
 
 --Annullamento iscrizione di un esame.
 
---update stato appello da chiamare ogni volta che lo studente refresha la pagine delle iscrizioni
+
+--registrazione del voto da parte dello studente
+
 
 --TRIGGER 
 
@@ -910,7 +944,23 @@ create table "UniNostra".PianoStudi(
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaPassatoVoti();
 
 
-	--finire testing 
+--trigger che controlla che uno studente si possa iscrivere solo ad un turno di un esame durante una giornata 
+
+	create or replace function "UniNostra".controllaTurni()
+	returns trigger as $$
+	declare
+		dataApp "UniNostra".
+	begin 
+		
+		perform * from "UniNostra".iscrizioneEsame i where i.matricola = new.matricola and i.id <> new.id 
+	end
+	$$ language plpgsql;
+	
+	
+
+
+
+
 	select * from "UniNostra".appello a 
 	select * from "UniNostra".pianostudi p 
 	select * from "UniNostra".propedeuticita p 
