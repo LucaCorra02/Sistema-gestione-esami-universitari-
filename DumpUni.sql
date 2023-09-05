@@ -385,7 +385,7 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 
-	--call "UniNostra".aggiungiStudente('Luca','Corradini','luca.corradini@studenti.UniNostra','1234','cf3','3930582002','busto arsizio va','2002-08-05','FX101');
+	--call "UniNostra".aggiungiStudente('Giacomo','Comitani','giacomo.comitani@studenti.UniNostra','1234','cf5','3930582002','vimodrone mi','2002-11-03','FX102');
 
 --funzione per il cambio di corso di laurea di uno studente to do
 
@@ -880,35 +880,13 @@ create table "UniNostra".PianoStudi(
 	end; 
 	$$ language plpgsql;
 	
-	insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
-	values ('3930582002','busto arsizio va','2002-08-05','11','FX101')
-	--FX101  10,6,4
- 
-	select * from "UniNostra".appello a 
-	select * from "UniNostra".iscrizioneesame i 
-	select * from "UniNostra".studente s 
+	--call "UniNostra".registraLaurea(1,'Laureato',90)
 	
-	update "UniNostra".studente set stato = null  where matricola = 1
-	
-	--'22' '11' '13'
-	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('1','22','27','Accettato',false);
-
-	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('1','13','27','Accettato',false);
-	
-	call "UniNostra".registraLaurea(1,'Laureato',90)
-
-	--riattivare trigger
-
-
+--riattivare trigger
 
 --fixare il fatto che la chiusura degli appelli non si aggiorna 
 
---
-
---storico 
---studente che si laurea controllo carriera
+--trigger all'eliminazione dello studente
 
 
 --TRIGGER 
@@ -1124,7 +1102,7 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
 
-	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame 
+	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
 --Eccezioni : se lo studente possiede un esito pendente (non ancora accettato o rifiutato) non si potrà iscrivere ad un nuovo appello. 
