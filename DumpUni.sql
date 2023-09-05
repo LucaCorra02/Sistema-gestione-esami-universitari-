@@ -109,6 +109,7 @@ create table "UniNostra".CorsoDiLaurea(
 	nome varchar(50) not null check (nome<>''),
 	descrizione varchar(200), 
 	isAttivo bool not null default false, 
+	--cfuTot integer not null,
 	durata tipoCorsoLaurea not null 
 );
 
@@ -121,9 +122,12 @@ create table "UniNostra".Studente (
 	annoIscrizione Date not null default current_date,
 	inCorso bool not null default true,
 	idUtente integer references "UniNostra".Utente(idUtente) on delete cascade, 
-	idCorso varchar references "UniNostra".CorsoDiLaurea(codice) on delete cascade 
+	idCorso varchar references "UniNostra".CorsoDiLaurea(codice) on delete cascade,
+	stato tipoSatoExStudente default null,
+	votoLaur "UniNostra".votoLaurea default null 
 );
-
+drop table "UniNostra".studente 
+drop table "UniNostra".iscrizioneesame 
 
 --Creazione dell'iscrizione con relativo esito dell'esame 
 create table "UniNostra".IscrizioneEsame (
@@ -382,8 +386,7 @@ create table "UniNostra".PianoStudi(
 	$$language plpgsql;
 
 	--call "UniNostra".aggiungiStudente('Luca','Corradini','luca.corradini@studenti.UniNostra','1234','cf3','3930582002','busto arsizio va','2002-08-05','FX101');
-	
-	
+
 --funzione per il cambio di corso di laurea di uno studente to do
 
 --funzione per l'inserimento di un segretario, può essere utilizzata solamenete da altri segretari
@@ -833,8 +836,70 @@ create table "UniNostra".PianoStudi(
 
 	--call "UniNostra".aggiornaInCorso('1');
 
-
 --Funzione che peremtte ad un segretario di registrare la laurea o il ritiro di uno studente. 
+--Parametri : Matricola (integer), status (tipoSatoExStudente), votoLaurea "UniNostra".votoLaurea
+--Eccezioni : La matricola inserita non esiste 
+--			  Lo studente inserito non ha ancora passato tutti gli esami previsti dal suo cdl 
+	
+	create or replace procedure "UniNostra".registraLaurea(
+		mat integer , status tipoSatoExStudente, votoL "UniNostra".votoLaurea
+	)
+	as $$
+	declare 
+		cdlS "UniNostra".appello.cdl%type; 
+		idIns "UniNostra".insegnamento.codice%type;
+	begin 
+		perform * from "UniNostra".studente s where s.matricola = mat;
+		if not found then 
+			raise exception 'lo studente % non esiste all^interno della base di dati',mat;
+		end if;
+	
+		if status = 'Laureato' and votoL is null then 
+			raise exception 'inserire il voto di laurea';
+		end if;
+		
+		if status = 'Ritirato' then 
+			votoL := null; 
+		end if;
+	
+		if status is not null then
+			if status = 'Laureato' then 
+				select s.idcorso into cdlS from "UniNostra".studente s where s.matricola = mat; 
+				for idIns in select p.codiceinsegnamento from "UniNostra".pianostudi p where p.codicecorso = cdlS
+					loop 
+						perform * from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello  
+						where i.matricola = mat and i.stato = 'Accettato' and a.cdl = cdlS and a.codiceinsegnamento = idIns;
+						if not found then
+							raise exception 'lo studente non ha passato l^esame con id % previsto dal cdl %',idIns,cdlS;
+						end if;
+					end loop;
+			end if;
+			update "UniNostra".studente s set stato = status, votolaur = votoL where s.matricola = mat;
+			delete from "UniNostra".studente s where s.matricola = mat;
+		end if;
+	end; 
+	$$ language plpgsql;
+	
+	insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
+	values ('3930582002','busto arsizio va','2002-08-05','11','FX101')
+	--FX101  10,6,4
+ 
+	select * from "UniNostra".appello a 
+	select * from "UniNostra".iscrizioneesame i 
+	select * from "UniNostra".studente s 
+	
+	update "UniNostra".studente set stato = null  where matricola = 1
+	
+	--'22' '11' '13'
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('1','22','27','Accettato',false);
+
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('1','13','27','Accettato',false);
+	
+	call "UniNostra".registraLaurea(1,'Laureato',90)
+
+	--riattivare trigger
 
 
 
@@ -1059,6 +1124,7 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
 
+	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame 
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
 --Eccezioni : se lo studente possiede un esito pendente (non ancora accettato o rifiutato) non si potrà iscrivere ad un nuovo appello. 
