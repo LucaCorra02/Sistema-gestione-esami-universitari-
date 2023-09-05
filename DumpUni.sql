@@ -730,16 +730,93 @@ create table "UniNostra".PianoStudi(
 --			  L'appello deve essere chiuso.
 --			  lo studente deve essere iscritto all'appello.
 --			  La lode non può essere true se il voto non è 30.
+--			  lo studente ha già un voto registrato 
 
+	create or replace procedure "UniNostra".registraVotoEsame(
+		idDoc integer, mat integer, idApp integer, votoE "UniNostra".voto, lode bool 
+	)
+	as $$
+	declare 
+		idIns "UniNostra".insegnamento.codice%type;
+		corsoL "UniNostra".appello.cdl%type;
+	begin 
+		perform * from "UniNostra".docente d where d.idutente = idDoc;
+		if not found then 
+			raise exception 'il docente con id %, non esiste all^interno della base di dati',idDoc;
+		end if; 
+		perform * from "UniNostra".studente s where s.matricola = mat;
+		if not found then 
+			raise exception 'lo studente % , non esiste all^interno della base di dati',mat;
+		end if;
+	
+		perform * from "UniNostra".appello a inner join "UniNostra".insegnamento i on a.codiceinsegnamento = i.codice  
+		where a.idappello = idApp and i.iddocente = idDoc; 
+		if not found then 
+			raise exception 'il docente % non è responsabile dell^apello %',idDoc,idApp;
+		end if;
+	
+		call "UniNostra".aggiornaStatoAppello(idApp);
+		perform * from "UniNostra".appello a where a.idappello = idApp and a.statoappello = 'chiuso';
+		if not found then 
+			raise exception 'il docente % non può inserire voti, in quanto l^appello % non è ancora chiuso',idDoc,idApp;
+		end if;
+		
+		perform * from "UniNostra".iscrizioneesame i where i.id = idApp and i.matricola = mat and i.stato = 'Iscritto' ;
+		if not found then
+			raise exception 'lo studente % non risulta iscritto all^appello %',mat,idApp;
+		end if;
+		
+		--controllare se lo studente ha già un voto accettato per quel inseganemtno
+		select a.codiceinsegnamento,a.cdl  into idIns,corsoL from "UniNostra".appello a where a.idappello = idApp;
+		perform * from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello 
+		where i.matricola = mat and a.codiceinsegnamento = idIns and  a.cdl = corsoL and i.stato = 'Accettato';
+		if found then
+			delete from "UniNostra".iscrizioneesame i where i.matricola = mat and i.id = idApp;
+			raise notice 'lo studente % ha già un esito registrato per l^insegnamento %',mat,idIns;
+		end if;
+		
+		if votoE is null then 
+			update "UniNostra".iscrizioneesame i 
+			set stato = 'Ritirato', isLode = false
+			where i.matricola = mat and i.id = idApp;
+		else 
+			if votoE < 18 then 
+				update "UniNostra".iscrizioneesame i 
+				set stato = 'Bocciato', votoesame = votoE,isLode = false 
+				where i.matricola = mat and i.id = idApp;
+			else
+				if lode and votoE <> 30 then 
+					raise exception 'non può essere asseganta la lode se il voto non è 30';
+				end if;
+				update "UniNostra".iscrizioneesame i 
+				set stato = 'In attesa', isLode = lode, votoesame = votoE 
+				where i.matricola = mat and i.id = idApp;	
+			end if;
+		end if;
+	end 
+	$$ language plpgsql;
 
+	select * from "UniNostra".iscrizioneesame i 
+	select * from "UniNostra".appello a 
 
+	update "UniNostra".iscrizioneesame i set stato = 'Rifiutato' where i.id = 11
+	
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('1','15',null,'Iscritto',false);
+	
+	call "UniNostra".registraVotoEsame('1','1','15',30,true);
+
+	---finire e testare
 
 
 
 
 --fixare il fatto che la chiusura degli appelli non si aggiorna 
 
---registrazione del voto da parte del docente
+--
+
+--storico 
+--studente che si laurea controllo carriera
 
 
 --TRIGGER 
@@ -954,7 +1031,6 @@ create table "UniNostra".PianoStudi(
 
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
-	
 
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
