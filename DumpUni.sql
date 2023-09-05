@@ -795,19 +795,46 @@ create table "UniNostra".PianoStudi(
 		end if;
 	end 
 	$$ language plpgsql;
-
-	select * from "UniNostra".iscrizioneesame i 
-	select * from "UniNostra".appello a 
-
-	update "UniNostra".iscrizioneesame i set stato = 'Rifiutato' where i.id = 11
 	
-	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('1','15',null,'Iscritto',false);
-	
-	call "UniNostra".registraVotoEsame('1','1','15',30,true);
+	--call "UniNostra".registraVotoEsame('1','1','15',30,true);
 
-	---finire e testare
+--Funzione che permette di aggiornare la variabile inCorso di uno studente 
+--Parametri : Matricola(integer)
+--Eccezioni : la matricola inserita non esiste 
 
+	create or replace procedure "UniNostra".aggiornaInCorso(
+		mat integer
+	)
+	as $$
+	declare 
+		dur "UniNostra".corsodilaurea.durata%type;
+		iscrizione "UniNostra".studente.annoiscrizione%type;
+		somma integer;
+	begin
+		perform * from "UniNostra".studente s where s.matricola = mat;
+		if not found then 
+			raise exception 'la matricola inserita non esiste';
+		end if;
+		
+		select s.annoiscrizione, c.durata  into iscrizione,dur from "UniNostra".studente s inner join "UniNostra".corsodilaurea c on c.codice = s.idcorso 
+		where s.matricola = mat;
+		if dur = '3' then
+			somma := 3;
+		else 
+			somma := 2;
+		end if;
+		if 	somma+1 >= DATE_PART('year', AGE(current_date,iscrizione)) then 
+			update "UniNostra".studente
+			set incorso = false 
+			where matricola = mat;
+		end if;
+	end 
+	$$ language plpgsql;
+
+	--call "UniNostra".aggiornaInCorso('1');
+
+
+--Funzione che peremtte ad un segretario di registrare la laurea o il ritiro di uno studente. 
 
 
 
