@@ -268,13 +268,16 @@ create table "UniNostra".PianoStudi(
 		nomeU varchar(50), cognomeU varchar(50), emailU varchar(50),pssw varchar(32), tipoU tipoUtente, cfU varchar(16)
 	)
 	as $$ 
+	declare 
+		ps text;
 	begin 
+		ps := md5(pssw)::varchar(20);
 		insert into "UniNostra".utente (nome,cognome,email,password,tipo,cf)
-		values (nomeU,cognomeU,emailU,pssw,tipoU,cfU);
+		values (nomeU,cognomeU,emailU,ps,tipoU,cfU);
 	end;
 	$$language plpgsql;
-	
-	--call "UniNostra".utente ('nome','cognome','email@gmail.com','1234','Studente','cf2')
+
+	--call "UniNostra".aggiungiUtente('nome','cognome','email@gmail.com','1234','Studente','cf10')
 	
 --Modifica delle credenziali di accesso di un utente. L'utente viene riconosciuto attraverso l'email e la password, 
 --i campi che non vogliono essere modificati andranno lasciati a null. 
@@ -307,7 +310,7 @@ create table "UniNostra".PianoStudi(
 		end if;
 	
 		if newPssw is not null then 
-			upPsw = newPssw;
+			upPsw = md5(newPssw)::varchar(20);
 		else 
 			upPsw = pssw;
 		end if; 
@@ -331,7 +334,7 @@ create table "UniNostra".PianoStudi(
 	declare 
 		idU integer;
 	begin 
-		call "UniNostra".utente (nomeU,cognomeU,emailU,pssw,tipoU,cfU);
+		call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,pssw,tipoU,cfU);
 		
 		select u.idUtente into idU 
 		from "UniNostra".utente u 
@@ -343,7 +346,7 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 
-	--call "UniNostra".aggiungiDocente ('Vincenzo','Piuri','VincenzoPiuri@docenti.UniNostra','1234','Docente','cf2','via celoria 18','3331888772');
+	--call "UniNostra".aggiungiDocente ('Violetta','Lonati','ViolettaLonati@docenti.UniNostra','1234','Docente','cf6','via celoria 18','3331888772');
 
 --inserimento di uno studente nella base di dati, saranno richieste le informazioni dello studente e il corso di laurea a cui si vuole iscrivere. procedura utilizzata internamente dalla segreteria 
 --Parametri : nome (varchar), cognome(varchar), email(varchar),password(varchar), cf(varchar) ,Telefono (varchar), indirizzo residenza (varchar), dataNascita (date), 
@@ -376,7 +379,7 @@ create table "UniNostra".PianoStudi(
 			raise exception 'Lo studente risulta già iscritto ad un corso di laurea';
 		end if; 
 		
-		call "UniNostra".utente (nomeU,cognomeU,emailU,passwordU,'Studente',cfU);
+		call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,passwordU,'Studente',cfU);
 		select u.idutente into idU from "UniNostra".utente u where u.email = emailU;
 		
 		insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
@@ -407,7 +410,7 @@ create table "UniNostra".PianoStudi(
 			raise exception 'segretario già registrato nel sistema';
 		end if; 
 		
-		call "UniNostra".utente (nomeU,cognomeU,emailU,passwordU,'Segretario',cfU);
+		call "UniNostra".aggiungiUtente(nomeU,cognomeU,emailU,passwordU,'Segretario',cfU);
 		select u.idutente into idU from "UniNostra".utente u where u.email = emailU;
 		
 		insert into "UniNostra".segretario (idUtente,indirizzosegreteria ,nomedipartimento ,cellulareinterno)
