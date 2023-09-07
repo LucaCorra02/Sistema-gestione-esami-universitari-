@@ -323,7 +323,8 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 
-	--call "UniNostra".aggiornaCredenzialiUtente('nuova@gmail.com','1234','GiovanniPighizzini@docenti.UniNostra','1234');
+	select * from "UniNostra".studente s 
+	--call "UniNostra".aggiornaCredenzialiUtente('luca.corradini@studenti.UniNostra','1234','luca.corradini@studenti.UniNostra','1234');
 
 --Aggiunta di un docente 
 --Parametri : Nome(varchar), Cognome(varchar),Password(varchar),Email(varchar),tipo(tipoUtente),cf(varchar),indirizzoUfficio (varchar), cellulareInterno(varchar)
@@ -893,6 +894,7 @@ create table "UniNostra".PianoStudi(
 
 --trigger all'eliminazione dello studente
 
+--aggiungere ad ex studente riferimento ad utente
 
 --TRIGGER 
 

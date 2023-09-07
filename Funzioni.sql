@@ -18,4 +18,32 @@ AS $$
 	 END;
  $$;
 
-select idU,tipoU from "UniNostra".login('violettaLonati@docenti.UniNostra','1234');
+--select idU,tipoU from "UniNostra".login('violettaLonati@docenti.UniNostra','1234');
+
+CREATE OR REPLACE FUNCTION "UniNostra".profiloStudente (
+  idU integer
+)
+RETURNS TABLE (
+	matricola integer,
+    telefono varchar(20),
+    indirizzoresidenza varchar(100),
+    annoiscrizione date,
+    incorso bool,
+    idcorso varchar(10)
+)
+LANGUAGE plpgsql
+AS $$
+	begin	
+		
+		RETURN QUERY
+			select s.matricola ,s.telefono ,s.indirizzoresidenza ,s.annoiscrizione ,s.incorso ,s.idcorso 
+			from "UniNostra".utente u inner join "UniNostra".studente s on u.idutente = s.idutente 
+			where u.idutente = idU;
+	 END;
+ $$;
+
+ --select * from "UniNostra".profiloStudente('11');
+
+
+
+
