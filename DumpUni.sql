@@ -1,5 +1,7 @@
 DROP SCHEMA IF EXISTS "UniNostra" CASCADE;
 CREATE schema "UniNostra";
+SET search_path TO "UniNostra";
+
 
 --Creazioen tipo utente, ("Studente","Docente","Segretario")
 CREATE TYPE tipoUtente AS ENUM ('Studente', 'Docente', 'Segretario'); --aggiungere ex studente ?
