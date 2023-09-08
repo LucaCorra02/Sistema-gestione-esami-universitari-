@@ -584,8 +584,8 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 	
-	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/08/31','13:10:00','15:15:00','FX101');
-	--call "UniNostra".inserimentoAppello('7','1','omega','bho','2023/08/31','10:50:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/09','13:10:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('10','1','omega','bho','2023/09/10','10:50:00','15:15:00','FX101');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
 --update stato appello da chiamare ogni volta che lo studente refresha la pagine delle iscrizioni
@@ -841,6 +841,7 @@ create table "UniNostra".PianoStudi(
 	$$ language plpgsql;
 
 	--call "UniNostra".aggiornaInCorso('1');
+	update "UniNostra".studente s set annoiscrizione = '2019/05/08' where s.matricola = '1';
 
 --Funzione che peremtte ad un segretario di registrare la laurea o il ritiro di uno studente. 
 --Parametri : Matricola (integer), status (tipoSatoExStudente), votoLaurea "UniNostra".votoLaurea
