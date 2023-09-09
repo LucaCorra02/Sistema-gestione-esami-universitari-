@@ -318,13 +318,13 @@ create table "UniNostra".PianoStudi(
 		end if; 
 		
 		update "UniNostra".utente
-		set password = upPsw , email = upEmail
+		set password = upPsw , email = emailU
 		where password = pssw and email = emailU;
 	end;
 	$$language plpgsql;
 
-	select * from "UniNostra".studente s 
-	--call "UniNostra".aggiornaCredenzialiUtente('luca.corradini@studenti.UniNostra','1234','luca.corradini@studenti.UniNostra','1234');
+	--select * from "UniNostra".utente u 
+	--call "UniNostra".aggiornaCredenzialiUtente('giacomo.comitani@studenti.UniNostra','1234','aggiornaCredenzialiUtente.@studenti.UniNostra','1234');
 
 --Aggiunta di un docente 
 --Parametri : Nome(varchar), Cognome(varchar),Password(varchar),Email(varchar),tipo(tipoUtente),cf(varchar),indirizzoUfficio (varchar), cellulareInterno(varchar)
@@ -585,7 +585,7 @@ create table "UniNostra".PianoStudi(
 	$$language plpgsql;
 	
 	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/09','13:10:00','15:15:00','FX101');
-	--call "UniNostra".inserimentoAppello('10','1','omega','bho','2023/09/10','10:50:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('10','1','gamma','bho','2023/09/10','10:50:00','15:15:00','FX102');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
 --update stato appello da chiamare ogni volta che lo studente refresha la pagine delle iscrizioni
@@ -832,7 +832,7 @@ create table "UniNostra".PianoStudi(
 		else 
 			somma := 2;
 		end if;
-		if 	somma+1 >= DATE_PART('year', AGE(current_date,iscrizione)) then 
+		if 	DATE_PART('year', AGE(current_date,iscrizione)) >= somma+1 then 
 			update "UniNostra".studente
 			set incorso = false 
 			where matricola = mat;
@@ -840,8 +840,9 @@ create table "UniNostra".PianoStudi(
 	end 
 	$$ language plpgsql;
 
-	--call "UniNostra".aggiornaInCorso('1');
-	update "UniNostra".studente s set annoiscrizione = '2019/05/08' where s.matricola = '1';
+	--call "UniNostra".aggiornaInCorso('2');
+	--select * from "UniNostra".studente s  
+	--update "UniNostra".studente s set incorso  = true  where s.matricola = '1';
 
 --Funzione che peremtte ad un segretario di registrare la laurea o il ritiro di uno studente. 
 --Parametri : Matricola (integer), status (tipoSatoExStudente), votoLaurea "UniNostra".votoLaurea
@@ -1110,7 +1111,8 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
 
-	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
+	select * from "UniNostra".appello a 
+	--drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
 --Eccezioni : se lo studente possiede un esito pendente (non ancora accettato o rifiutato) non si potrà iscrivere ad un nuovo appello. 
@@ -1212,9 +1214,9 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".propedeuticita p 
 	
 	
-	call "UniNostra".inserimentoAppello('6','4','omega','bho','2023/09/06','08:00:00','09:00:00','FX101');
+	call "UniNostra".inserimentoAppello('6','4','bertone','bho','2023/09/11','10:00:00','13:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
-	values('6','omega','bho','2023/08/04','11:40:00','13:00:00','chiuso','FX101');
+	values('6','omega','bho','2023/09/09','18:00:00','19:50:00','aperto','FX101');
 
 	call "UniNostra".inserisciIscrizioneEsame('1','21');
 
