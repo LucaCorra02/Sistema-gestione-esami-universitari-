@@ -898,6 +898,12 @@ create table "UniNostra".PianoStudi(
 
 --aggiungere ad ex studente riferimento ad utente
 
+--no laurea a corsi senza esame
+
+--rinuncia agli studi studente
+
+--procedura cambia corso di laurea
+
 --TRIGGER 
 
 --Trigger che permette di disattivare un corso di laurea se non presenta insegnamenti o attivarlo se ne presenta almeno uno. 

@@ -159,4 +159,110 @@ CREATE OR REPLACE FUNCTION "UniNostra".iscrizioniAppelli (
 
 select * from "UniNostra".studente s 
 
+--Funzione che dato l'id utente di uno studente, restituisce tutti gli esami che ha accettato e superato
+--Parametri : idUtente (integer)
+--Eccezioni : se l'id utente inserito non appartiene ad uno studente 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaEsamiPassati(
+	  idU integer
+	)
+	RETURNS TABLE (
+		idappello integer,
+		codiceinsegnamento integer,
+		nomeIns varchar(50),
+		cfu integer,
+		cdl varchar(10),
+		nome varchar(50),
+		cognome varchar(100),
+		dataesame date,
+		votoE "UniNostra".voto,
+		lode bool,
+		statoStudente tipoStatoVoto  
+		
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		mat integer; 
+		begin	
+			select s.matricola into mat from "UniNostra".studente s where s.idutente = idU;
+			if mat is null then 
+				raise exception 'l^id inserito non appartiene ad uno studente';
+			end if;
+			
+			RETURN QUERY
+				select a.idappello, a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
+				from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
+				where i.matricola = mat and i.stato = 'Accettato'
+				order by a.dataesame;
+		 END;
+	 $$;
+	
+	--select * from "UniNostra".visualizzaEsamiPassati('11');
+
+--Funzione che dato l'id utente di uno studente, restituisce tutta la sua carriera
+--Parametri : idUtente (integer)
+--Eccezioni : se l'id utente inserito non appartiene ad uno studente 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaCarriera(
+		  idU integer
+		)
+		RETURNS TABLE (
+			idappello integer,
+			codiceinsegnamento integer,
+			nomeIns varchar(50),
+			cfu integer,
+			cdl varchar(10),
+			nome varchar(50),
+			cognome varchar(100),
+			dataesame date,
+			votoE "UniNostra".voto,
+			lode bool,
+			statoStudente tipoStatoVoto  
+			
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			mat integer; 
+			begin	
+				select s.matricola into mat from "UniNostra".studente s where s.idutente = idU;
+				if mat is null then 
+					raise exception 'l^id inserito non appartiene ad uno studente';
+				end if;
+				
+				RETURN QUERY
+					select a.idappello, a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
+					from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
+					where i.matricola = mat and i.stato <> 'Iscritto' and i.stato <> 'In attesa'
+					order by a.dataesame;
+			 END;
+		 $$;
+		
+		--select * from "UniNostra".visualizzaCarriera('14')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
