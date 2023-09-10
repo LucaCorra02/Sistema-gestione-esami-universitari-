@@ -890,7 +890,6 @@ create table "UniNostra".PianoStudi(
 	
 	--call "UniNostra".registraLaurea(1,'Laureato',90)
 	
---riattivare trigger
 
 --fixare il fatto che la chiusura degli appelli non si aggiorna 
 
@@ -900,9 +899,9 @@ create table "UniNostra".PianoStudi(
 
 --no laurea a corsi senza esame
 
---rinuncia agli studi studente
+--rinuncia agli studi studente segreteria e studente
 
---procedura cambia corso di laurea
+--procedura cambia corso di laurea segreteria
 
 --TRIGGER 
 

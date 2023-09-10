@@ -194,7 +194,7 @@ select * from "UniNostra".studente s
 				select a.idappello, a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
 				from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
 				where i.matricola = mat and i.stato = 'Accettato'
-				order by a.dataesame;
+				order by a.dataesame desc ;
 		 END;
 	 $$;
 	
@@ -235,13 +235,59 @@ select * from "UniNostra".studente s
 					select a.idappello, a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
 					from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
 					where i.matricola = mat and i.stato <> 'Iscritto' and i.stato <> 'In attesa'
-					order by a.dataesame;
+					order by a.dataesame DESC;
 			 END;
 		 $$;
 		
+		
 		--select * from "UniNostra".visualizzaCarriera('14')
 
-
+--Funzione che dato l'id di un utente studente mostra tutti i voti che può rifiutare o accettare. 
+--Parametri : idUtente(integer)
+--Eccezioni : se l'id inserito non appertiene ad uno studente 
+		
+	CREATE OR REPLACE FUNCTION "UniNostra".accettaVoti(
+			  idU integer
+			)
+			RETURNS TABLE (
+				idappello integer,
+				idDoc integer,
+				codiceinsegnamento integer,
+				nomeIns varchar(50),
+				cfu integer,
+				cdl varchar(10),
+				nome varchar(50),
+				cognome varchar(100),
+				dataesame date,
+				votoE "UniNostra".voto,
+				lode bool,
+				statoStudente tipoStatoVoto  
+				
+			)
+			LANGUAGE plpgsql
+			AS $$
+			declare 
+				mat integer; 
+				begin	
+					
+					select s.matricola into mat from "UniNostra".studente s where s.idutente = idU;
+					if mat is null then 
+						raise exception 'l^id inserito non appartiene ad uno studete';
+					end if;
+					
+					RETURN QUERY
+						select a.idappello,i2.iddocente ,a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
+						from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
+						where i.matricola = mat and i.stato = 'In attesa'
+						order by a.dataesame asc ;
+				 END;
+			 $$;
+			
+		drop function "UniNostra".accettaVoti;
+		--select * from "UniNostra".accettaVoti('14');
+		--call "UniNostra".registraVotoEsame('4','1','38',30,true);
+		
+		
 
 
 
