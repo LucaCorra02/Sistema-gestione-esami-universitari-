@@ -154,14 +154,19 @@ create table "UniNostra".ExStudente(
 	stato tipoSatoExStudente default null, 
 	dataRimozione date not null default current_date, 
 	votoLaurea "UniNostra".votoLaurea default null,
-	codiceCorso varchar(10) references "UniNostra".CorsoDiLaurea(codice) on delete cascade
+	codiceCorso varchar(10) references "UniNostra".CorsoDiLaurea(codice) on delete cascade,
+	idUtente integer references "UniNostra".utente(idutente) on delete cascade --aggiornare ER
 );
+
+drop table "UniNostra".ExStudente
+drop table "UniNostra".storicovalutazioni 
 
 --stroico valutazioni 
 create table "UniNostra".StoricoValutazioni (
 	id serial primary key, 
 	votoEsame "UniNostra".voto default null, 
 	stato tipoStatoVoto default null,
+	isLode bool default null,
 	idAppello integer references "UniNostra".Appello(idAppello) on delete cascade, 
 	matricola integer references "UniNostra".ExStudente(matricola) on delete cascade
 );
@@ -1116,8 +1121,9 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER controllaIscrizioniAppelli BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
 
-	select * from "UniNostra".appello a 
-	--drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
+	--select * from "UniNostra".appello a 
+	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
+
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
 --Eccezioni : se lo studente possiede un esito pendente (non ancora accettato o rifiutato) non si potrà iscrivere ad un nuovo appello. 
@@ -1205,6 +1211,65 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER elliminaIscrizioniPassate after update on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".disiscriviStudente();
 
+--Trigger che all'eliminazione di uno studente (laureato o ritirato), sposta lo studente in ex studente e archivia la sua cariera
+--Action : delete sulla tabella studente 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".storicoStudente()
+	RETURNS TRIGGER AS $$
+	DECLARE 
+    	iscrizioneApp "UniNostra".iscrizioneesame%rowtype;
+    	oldUtente "UniNostra".utente%rowtype;
+	BEGIN 
+		
+		select u.idutente ,u.nome ,u.cognome ,u.email ,u."password" , u.tipo ,u.cf  into oldUtente from "UniNostra".studente s inner join "UniNostra".utente u on s.idutente = u.idutente where s.matricola = old.matricola ;
+		
+		insert into "UniNostra".exstudente(matricola,nome,cognome,telefono,indirizzoResidenza,dataNascita,annoIscrizione,incorso,stato,datarimozione,"votolaurea",codicecorso,idutente)
+		values(old.matricola,oldUtente.nome,oldUtente.cognome,old.telefono,old.indirizzoResidenza,old.dataNascita,old.annoIscrizione,old.incorso,old.stato,CURRENT_DATE,old.votoLaur,old.idCorso,old.idUtente);
+		
+		for iscrizioneApp in select * from "UniNostra".iscrizioneesame i where i.matricola = old.matricola
+			loop 
+				insert into "UniNostra".storicovalutazioni (votoesame,stato,idAppello,matricola,isLode)
+				values(iscrizioneApp.votoEsame,iscrizioneApp.stato,iscrizioneApp.id,iscrizioneApp.matricola,iscrizioneApp.isLode);
+				
+			end loop;
+			delete from "UniNostra".iscrizioneesame i where i.matricola = old.matricola;
+	
+        	RETURN OLD;
+	END;	
+	$$ LANGUAGE plpgsql;
+
+	CREATE OR REPLACE TRIGGER storicoStud before delete on "UniNostra".studente 
+	FOR EACH ROW EXECUTE function "UniNostra".storicoStudente();
+
+	---RIATTIVARE TRIGGER ISCRIZIONI APPELLI
+	---RISCRIVERE AD UN ALTRO CORSO DI LAUREA
+	---DISTINGURE IN ACCESSO TRA STUDENTE E EXSTUDENTE
+
+	--drop trigger storicoStud on "UniNostra".studente 
+
+	select * from "UniNostra".pianostudi p where p.codicecorso= 'FX102';
+	'6' '10' '4'
+	--29 30 31
+	select * from "UniNostra".appello a where a.cdl = 'FX102';
+	--40 --41 --42
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('2','40','27','Accettato',false);
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('2','41','28','Accettato',false);
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('2','42','29','Accettato',false);
+
+	
+	call "UniNostra".registraLaurea('2','Laureato','108');
+	select * from "UniNostra".utente u 
+	select * from "UniNostra".studente s 
+	select * from "UniNostra".exstudente e 
+	select * from "UniNostra".iscrizioneesame i 
+	select * from "UniNostra".storicovalutazioni s2 
+	
+	delete from "UniNostra".exstudente 
+	delete from "UniNostra".storicovalutazioni 
+	update "UniNostra".studente s set stato = null ,votoLaur = null where s.matricola = '2';
 
 
 	select * from "UniNostra".iscrizioneesame i 

@@ -251,7 +251,6 @@ select * from "UniNostra".studente s
 			)
 			RETURNS TABLE (
 				idappello integer,
-				idDoc integer,
 				codiceinsegnamento integer,
 				nomeIns varchar(50),
 				cfu integer,
@@ -276,7 +275,7 @@ select * from "UniNostra".studente s
 					end if;
 					
 					RETURN QUERY
-						select a.idappello,i2.iddocente ,a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
+						select a.idappello ,a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
 						from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
 						where i.matricola = mat and i.stato = 'In attesa'
 						order by a.dataesame asc ;
@@ -284,6 +283,8 @@ select * from "UniNostra".studente s
 			 $$;
 			
 		drop function "UniNostra".accettaVoti;
+		select * from "UniNostra".iscrizioneesame i 
+		update "UniNostra".iscrizioneesame i2 set stato = 'In attesa' where id = '38';
 		--select * from "UniNostra".accettaVoti('14');
 		--call "UniNostra".registraVotoEsame('4','1','38',30,true);
 		
