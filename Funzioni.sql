@@ -322,16 +322,140 @@ select * from "UniNostra".studente s
 				 END;
 			 $$;
 	
-	select * from "UniNostra".visualizzaExCarriere('14');
+--Funzione che data la matricola di un ex-studente, ritorna la sua carriera passata. 
+--Parametri : matricola (integer)
+--Eccezioni : la matricola inserita non appartiene ad un ex-studente 		
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaExVotiValidi(
+		  mat integer
+		)
+		RETURNS TABLE (
+			codiceinsegnamento integer,
+			nomeIns varchar(50),
+			cfu integer,
+			cdl varchar(10),
+			nome varchar(50),
+			cognome varchar(100),
+			dataesame date,
+			votoE "UniNostra".voto,
+			lode bool,
+			statoStudente tipoStatoVoto  			
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			begin	
+				
+				perform * from "UniNostra".exstudente e where e.matricola = mat;
+				if not found then 
+					raise exception 'l^id inserito non appartiene ad un ex studente';
+				end if;
+			
+				RETURN QUERY
+					select a.codiceinsegnamento, i.nome , i.cfu , a.cdl , u.nome , u.cognome , a.dataesame , s.votoesame , s.islode , s.stato 
+					from "UniNostra".storicovalutazioni s inner join "UniNostra".appello a on a.idappello = s.idappello  inner join "UniNostra".insegnamento i on i.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i.iddocente 
+					where s.matricola = mat and s.stato = 'Accettato'
+					order by a.dataesame ;
+			 END;
+		 $$;
+	
+--Funzione che data la matricola di un ex-studente, ritorna la sua carriera passata completa. 
+--Parametri : matricola (integer)
+--Eccezioni : la matricola inserita non appartiene ad un ex-studente 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaExVoti(
+		  mat integer
+		)
+		RETURNS TABLE (
+			codiceinsegnamento integer,
+			nomeIns varchar(50),
+			cfu integer,
+			cdl varchar(10),
+			nome varchar(50),
+			cognome varchar(100),
+			dataesame date,
+			votoE "UniNostra".voto,
+			lode bool,
+			statoStudente tipoStatoVoto  			
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			begin	
+				
+				perform * from "UniNostra".exstudente e where e.matricola = mat;
+				if not found then 
+					raise exception 'l^id inserito non appartiene ad un ex studente';
+				end if;
+			
+				RETURN QUERY
+					select a.codiceinsegnamento, i.nome , i.cfu , a.cdl , u.nome , u.cognome , a.dataesame , s.votoesame , s.islode , s.stato 
+					from "UniNostra".storicovalutazioni s inner join "UniNostra".appello a on a.idappello = s.idappello  inner join "UniNostra".insegnamento i on i.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i.iddocente 
+					where s.matricola = mat
+					order by a.dataesame ;
+			 END;
+		 $$;
+			
+	select * from "UniNostra".storicovalutazioni s 
+	select * from "UniNostra".exstudente e 
+	select * from "UniNostra".visualizzaExVoti('2');
 
+--funzione che permmete di indirizzare nelle corrette pagine uno studente oppure un ex-studente
+--Parametri : idutente (integer)
 
+	CREATE OR REPLACE FUNCTION "UniNostra".isStudente(
+		  idU integer
+		)
+		RETURNS boolean 
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			begin		
+				perform * from "UniNostra".exstudente e 
+				where e.idutente = idU and not exists (
+					select *
+					from "UniNostra".studente s 
+					where s.idutente = idU
+				
+				);
+				if found then 
+					return false ; 
+				else 
+					return true;
+				end if;
+			 END;
+		 $$;
 
+		select * from "UniNostra".isStudente('14');
 
-
-
-
-
-
+--Funzione che visualizza il profilo di un ex studente 
+--Parmateri : idUtnete (integer)
+--Eccezioni : l'id inserito non è di un ex studente
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaProfiloEx(
+		  idU integer
+		)
+		RETURNS TABLE (
+			
+			
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			begin	
+				
+				perform * from "UniNostra".utente u inner join "UniNostra".exstudente e on e.idutente = u.idutente ;
+				if not found then 
+					raise exception 'L^id inserito non appartiene ad un ex studente';
+				end if;
+				
+				RETURN QUERY
+					select *
+					from "UniNostra".exstudente e 
+					where e.idutente = idU 
+					order by a.dataesame desc  limit 1;
+			 END;
+		 $$;
 
 
 

@@ -366,11 +366,12 @@ create table "UniNostra".PianoStudi(
 --			  Se lo studente risulta già iscritto ad un corso di laurea 
 
 	create or replace procedure "UniNostra".aggiungiStudente(
-		telefonoU varchar(20), residenzaU varchar(100), dataNascitaU date, idCorsoU varchar(10)
+		nomeU varchar(50), cognomeU varchar(50), emailU varchar(50),pssw varchar(32),cfU varchar(16),telefonoU varchar(20), residenzaU varchar(100), dataNascitaU date, idCorsoU varchar(10)
 	)
 	as $$
 	declare 
 		idU integer; 
+		exStud bool;
 	begin
 		
 		perform * from "UniNostra".corsodilaurea c where c.codice = idCorsoU; 
@@ -383,21 +384,45 @@ create table "UniNostra".PianoStudi(
 			raise exception 'lo studente non può iscriversi al corso di laurea in quanto è inattivo (senza insegnamenti)';
 		end if;
 	
-		perform * from "UniNostra".Utente u where u.email = emailU or u.cf = cfU; 
-		if found then 
+		exStud := true;
+		perform * from "UniNostra".Utente u 
+		where u.email = emailU or u.cf = cfU and exists (
+			select *
+			from "UniNostra".exstudente e 
+			where e.idutente = idU
+		
+		); 
+		if not found then 
 			raise exception 'Lo studente risulta già iscritto ad un corso di laurea';
+		else 
+			exStud := false;
 		end if; 
 		
-		call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,passwordU,'Studente',cfU);
+		if exStud then 
+			call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,passwordU,'Studente',cfU);
+		end if;
+	
 		select u.idutente into idU from "UniNostra".utente u where u.email = emailU;
 		
+		if not exStud then 
+			perform * from "UniNostra".exstudente e where e.idutente = idU and e.codicecorso = idCorsoU and e.stato = 'Laureato';
+			if found then 
+				raise exception 'lo studente ha già una laura per il corso di studi %',idCorsoU;
+			end if;
+		end if;
+	
 		insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
 		values(telefonoU,residenzaU,datanascitaU,idU,idCorsoU);
 		
 	end;
 	$$language plpgsql;
+	
+	select * from "UniNostra".studente s 
+	select * from "UniNostra".exstudente e 
+	select * from "UniNostra".utente u 
+	delete from "UniNostra".studente s where s.matricola = '3'
 
-	--call "UniNostra".aggiungiStudente('Giacomo','Comitani','giacomo.comitani@studenti.UniNostra','1234','cf5','3930582002','vimodrone mi','2002-11-03','FX102');
+	call "UniNostra".aggiungiStudente('Giacomo','Comitani','giacomo.comitani@studenti.UniNostra','1234','cf5','3930582002','vimodrone mi','2002-11-03','FX102');
 
 --funzione per il cambio di corso di laurea di uno studente to do
 
@@ -1242,6 +1267,8 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER storicoStud before delete on "UniNostra".studente 
 	FOR EACH ROW EXECUTE function "UniNostra".storicoStudente();
 
+	drop trigger storicoStud on "UniNostra".studente 
+
 	---RIATTIVARE TRIGGER ISCRIZIONI APPELLI
 	---RISCRIVERE AD UN ALTRO CORSO DI LAUREA
 	---DISTINGURE IN ACCESSO TRA STUDENTE E EXSTUDENTE
@@ -1287,7 +1314,7 @@ create table "UniNostra".PianoStudi(
 	
 	call "UniNostra".inserimentoAppello('6','4','bertone','bho','2023/09/11','10:00:00','13:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
-	values('6','omega','bho','2023/09/09','18:00:00','19:50:00','aperto','FX101');
+	values('4','omega','bho','2023/09/13','18:00:00','19:50:00','aperto','FX101');
 
 	call "UniNostra".inserisciIscrizioneEsame('1','21');
 
