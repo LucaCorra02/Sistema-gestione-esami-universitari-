@@ -128,6 +128,7 @@ create table "UniNostra".Studente (
 	stato tipoSatoExStudente default null,
 	votoLaur "UniNostra".votoLaurea default null 
 );
+
 drop table "UniNostra".studente 
 drop table "UniNostra".iscrizioneesame 
 

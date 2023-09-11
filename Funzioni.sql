@@ -282,14 +282,47 @@ select * from "UniNostra".studente s
 				 END;
 			 $$;
 			
-		drop function "UniNostra".accettaVoti;
-		select * from "UniNostra".iscrizioneesame i 
-		update "UniNostra".iscrizioneesame i2 set stato = 'In attesa' where id = '38';
+		--select * from "UniNostra".iscrizioneesame i 
+		--update "UniNostra".iscrizioneesame i2 set stato = 'In attesa' where id = '38';
 		--select * from "UniNostra".accettaVoti('14');
 		--call "UniNostra".registraVotoEsame('4','1','38',30,true);
 		
-		
-
+--Funzione che dato l'id utente di uno studente ritorna tutte le sue carriere passate 
+--Parametri : idUtente (integer)
+--Eccezioni : se l'id inserito non è di uno studente 
+			
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaExCarriere(
+			  idU integer
+			)
+			RETURNS TABLE (
+				matricola integer,
+				nome varchar(50),
+				cognome varchar(100),
+				stato tipoSatoExStudente,
+				votoLaur "UniNostra".votoLaurea ,
+				cdl varchar(10),
+				dataiscrizione date,
+				datarimozione date,
+				inCorso bool				
+			)
+			LANGUAGE plpgsql
+			AS $$
+			declare 
+				begin	
+					perform * from "UniNostra".utente u where u.idutente = idU and u.tipo = 'Studente';
+					if not found then 
+						raise exception 'l^id inserito non appartiene ad uno studente';
+					end if;
+				
+					RETURN QUERY
+						select e.matricola , u.nome , u.cognome, e.stato , e."votolaurea" , e.codicecorso , e.annoiscrizione ,e.datarimozione, e.incorso
+						from "UniNostra".utente u inner join "UniNostra".exstudente e on u.idutente = e.idutente 
+						where u.idutente = idU
+						order by e.datarimozione asc ;
+				 END;
+			 $$;
+	
+	select * from "UniNostra".visualizzaExCarriere('14');
 
 
 
