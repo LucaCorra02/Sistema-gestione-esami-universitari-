@@ -500,11 +500,12 @@ select * from "UniNostra".studente s
 				RETURN QUERY
 					select i.codice , i.nome , i.cfu, p.codicecorso,p.annoerogazione ,i.descrizione , u.nome , u.cognome 
 					from "UniNostra".pianostudi p inner join "UniNostra".insegnamento i on i.codice = p.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i.iddocente  
-					where p.codicecorso = idCdl ;
+					where p.codicecorso = idCdl 
+					order by p.annoerogazione ;
 			 END;
 		 $$;
 
-	--select * from "UniNostra".visualizzaCdl('1')
+	--select * from "UniNostra".visualizzaCdl('11')
 		
 --Funzione che dato l'id di uno studente, restituisce informazioni sul suo corso di laurea
 --Parametri : idUtente(integer)
@@ -540,6 +541,92 @@ select * from "UniNostra".studente s
 		 $$;
 
 	select * from "UniNostra".visualizzaInfoCdl('11');
+
+--Funzione che dato l'id di un insegnamento e del cdl a cui fa riferimento restituisce tutte le propredeuticità per quel corso 
+--Parametri : idCdl (varchar(10), idIns (integer)
+--Eccezioni : se il cdl non esiste
+--            se l'insegnamento non è in quel cdl 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaProp(
+		  idCdl varchar(10), idIns integer
+		)
+		returns text 
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			prop text;
+			ins integer;
+			nomeIns varchar(50);
+			begin	
+				
+				perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+				if not found then 
+					raise exception 'l^insegnamento non esite';
+				end if;
+			
+				perform * from "UniNostra".pianostudi p where p.codicecorso = idCdl and p.codiceinsegnamento = idIns;
+				if not found then 
+					raise exception 'l^insegnamento con codice %, non esite nel cdl %',idIns,idCdl;
+				end if;
+			
+				for ins in select p.prop from "UniNostra".propedeuticita p where p.esame = idIns and p.codicelaurea = idCdl
+					loop 
+						select i.nome into nomeIns from "UniNostra".insegnamento i where i.codice = ins ;
+						if prop is null then 
+							prop := nomeIns;
+						else 
+							prop := CONCAT (prop,', ', nomeIns);
+						end if;
+					end loop;
+				return prop; 
+			 END;
+		 $$;
+
+	select * from "UniNostra".visualizzaProp('FX101','6');
+	select * from "UniNostra".propedeuticita p 
+
+--Funzione che dato il codiced di un corso di laurea, restituisce tuti i suoi insegnamenti 
+--Parametri : idCdl (varchar(10)
+--Eccezioni : l'id del cordo di laurea inserito non è valido 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaTuttiCdl(
+		  idCdl varchar(10)
+		)
+		RETURNS TABLE (
+			codiceIns integer,
+			nomeIns varchar(50),
+			cfu integer,
+			codiceCdl varchar(10),
+			annoErogazione  annoEsame,
+			descrizione varchar(200),
+			nome varchar(50),
+			cognome varchar(100)
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			begin	
+				
+				perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+				if not found then 
+					raise exception 'il cdl inserito %, non esiste',idCdl;
+				end if;
+			
+				perform * from "UniNostra".corsodilaurea c where c.codice = idCdl and c.isattivo = false ;
+				if found then 
+					raise exception 'il cdl selezionato % non contiene insegnamenti, è inattivo',idCdl;
+				end if;
+				
+				RETURN QUERY
+					select i.codice, i.nome  , i.cfu, p.codicecorso , p.annoerogazione , i.descrizione , u.nome , u.cognome 
+					from "UniNostra".pianostudi p inner join "UniNostra".insegnamento i on p.codiceinsegnamento = i.codice inner join "UniNostra".utente u on u.idutente = i.iddocente 
+					where p.codicecorso = idCdl
+					order by p.annoerogazione ;
+			 END;
+		 $$;
+
+	select * from "UniNostra".visualizzaTuttiCdl('FX101');
+	select * from "UniNostra".corsodilaurea c ;
 
 
 

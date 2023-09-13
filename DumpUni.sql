@@ -200,7 +200,7 @@ create table "UniNostra".PianoStudi(
 	END;
 	$$ LANGUAGE plpgsql ;
 	
-	--call "UniNostra".inserisciCorsoLaurea('FX102','Informatica','Corso di lauerea Magistrale in informatica','5');
+	call "UniNostra".inserisciCorsoLaurea('MD101','Medicina','tirnnale di medicina','3');
 
 --Funzione che permette di attivare e disattivare un corso di laurea, sara utilizzata internamente. 
 --Parametri : id del corso di laurea (varchar), stato (boolean)
