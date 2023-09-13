@@ -195,12 +195,13 @@ create table "UniNostra".PianoStudi(
 	)
 	AS $$
 	BEGIN     
-    	INSERT INTO "UniNostra".CorsoDiLaurea(codice, nome, descrizione, durata)
-        VALUES (codice,nome,descrizione,durata);
+    	INSERT INTO "UniNostra".CorsoDiLaurea(codice, nome, descrizione, durata,isattivo)
+        VALUES (codice,nome,descrizione,durata,false);
 	END;
 	$$ LANGUAGE plpgsql ;
 	
-	call "UniNostra".inserisciCorsoLaurea('MD101','Medicina','tirnnale di medicina','3');
+
+--call "UniNostra".inserisciCorsoLaurea('MD101','Medicina','tirnnale di medicina','3');
 
 --Funzione che permette di attivare e disattivare un corso di laurea, sara utilizzata internamente. 
 --Parametri : id del corso di laurea (varchar), stato (boolean)
@@ -243,8 +244,9 @@ create table "UniNostra".PianoStudi(
 		values (nomeInsegnamento,Descrizione,CfuEsame, cast(date_part('year', CURRENT_DATE) as integer), Docente);	
 	end;
 	$$ language plpgsql;
+
 	
-	--call "UniNostra".inserisciInsegnamento('Programmazione 3','non esiste','12','4');
+	call "UniNostra".inserisciInsegnamento('Anatomia','si studiano cose','24','9');
 
 --Aggiornamento responsabile di un corso 
 --Prametri : id dell'insegnamento che si vuole aggiornare (integer), id del nuovo docente (integer)
@@ -306,7 +308,7 @@ create table "UniNostra".PianoStudi(
 			raise exception 'Email non esistente';
 		end if; 
 		
-		perform * from "UniNostra".utente u where u.email = emailU and u.password = pssw; 
+		perform * from "UniNostra".utente u where u.email = emailU and u.password = md5(pssw)::varchar(20); 
 		if not found then 
 			raise exception 'accesso non autorizzato';
 		end if;
@@ -322,14 +324,13 @@ create table "UniNostra".PianoStudi(
 		else 
 			upPsw = pssw;
 		end if; 
-		
+
 		update "UniNostra".utente
 		set password = upPsw , email = emailU
-		where password = pssw and email = emailU;
+		where email = emailU;
 	end;
 	$$language plpgsql;
 
-	--select * from "UniNostra".utente u 
 	--call "UniNostra".aggiornaCredenzialiUtente('giacomo.comitani@studenti.UniNostra','1234','aggiornaCredenzialiUtente.@studenti.UniNostra','1234');
 
 --Aggiunta di un docente 
@@ -489,7 +490,8 @@ create table "UniNostra".PianoStudi(
 	end; 
 	$$language plpgsql; 
 	
-	--call "UniNostra".inserisciPianoStudi('FX102','6','2')
+	
+	--call "UniNostra".inserisciPianoStudi('MD101','11','1')
 
 
 --Funzione per inserimento propredeuticità tra insegnamenti. Viene inserito per prima l'insegnamento a cui ci si vuole riferire e successivamente l'insegnamento propredeutico per il superamento del primo.
@@ -503,6 +505,9 @@ create table "UniNostra".PianoStudi(
 		codice1 integer, codice2 integer, codiceCdl varchar(10)
 	)
 	as $$
+	declare 
+		anno1 annoEsame;
+		anno2 annoEsame;
 	begin 
 		if codice1 = codice2 then 
 			raise exception 'Un insegnamento non può essere propedeutico a se stesso';
@@ -520,11 +525,19 @@ create table "UniNostra".PianoStudi(
 			raise exception 'il corso con codice % non appartiene al corso di laurea inserito : %',codice2,codiceCdl;
 		end if;
 	
+		select p.annoerogazione into anno1 from "UniNostra".pianostudi p where p.codicecorso = codiceCdl and p.codiceinsegnamento = codice1;
+		select p.annoerogazione into anno2 from "UniNostra".pianostudi p where p.codicecorso = codiceCdl and p.codiceinsegnamento = codice2;
+		if anno2 > anno1 then 
+			raise exception 'la propredeuticità non può riguardare esami in anni antecedenti ';
+		end if;
+	
 		insert into "UniNostra".propedeuticita (esame,prop,codiceLaurea)
 		values (codice1,codice2,codiceCdl);
 	
 	end;
 	$$language plpgsql;
+
+	--call "UniNostra".inserisciPropedeuticita('6','10','FX102');
 
 --Funzione per i docenti responsabili degli insegnamenti, permette di inserire un appello in una certa data per gli insegnamenti che detiene specifiacando il corso di laurea.
 --l'appello deve essere programmato almeno un giorno prima
@@ -1326,3 +1339,4 @@ create table "UniNostra".PianoStudi(
 	
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
 	values('1','21','27','In attesa',false);
+

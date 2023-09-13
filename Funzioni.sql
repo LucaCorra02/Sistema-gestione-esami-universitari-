@@ -625,12 +625,28 @@ select * from "UniNostra".studente s
 			 END;
 		 $$;
 
-	select * from "UniNostra".visualizzaTuttiCdl('FX101');
-	select * from "UniNostra".corsodilaurea c ;
+	--select * from "UniNostra".visualizzaTuttiCdl('FX101');
+	--select * from "UniNostra".corsodilaurea c ;
 
+--Funzione che restituisce tutti gli id dei corsi di laurea presenti 
+--Parametri : nessuno 
 
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaidCdl()
+	RETURNS TABLE (
+		codiceCdl varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin	
+			RETURN QUERY
+				select c.codice 
+				from "UniNostra".corsodilaurea c  
+				order by c.codice ;
+		 END;
+	 $$;
 
-
+	--select * from "UniNostra".visualizzaidCdl();
+	select * from "UniNostra".utente u 
 
 
 
