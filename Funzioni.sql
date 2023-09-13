@@ -436,8 +436,16 @@ select * from "UniNostra".studente s
 		  idU integer
 		)
 		RETURNS TABLE (
-			
-			
+			matricola integer,
+		    telefono varchar(20),
+		    indirizzoresidenza varchar(100),
+		    annoiscrizione date,
+		    incorso bool,
+		    idcorso varchar(10),
+		    nome varchar(50),
+		    cognome varchar(100),
+		    stato tipoSatoExStudente,
+		    votoLaur "UniNostra".votoLaurea
 		)
 		LANGUAGE plpgsql
 		AS $$
@@ -450,19 +458,88 @@ select * from "UniNostra".studente s
 				end if;
 				
 				RETURN QUERY
-					select *
+					select e.matricola , e.telefono , e.indirizzoresidenza , e.annoiscrizione , e.incorso , e.codicecorso , e.nome , e.cognome, e.stato , e."votolaurea" 
 					from "UniNostra".exstudente e 
 					where e.idutente = idU 
-					order by a.dataesame desc  limit 1;
+					order by e.datarimozione desc  limit 1;
+			 END;
+		 $$;
+		
+	--select * from "UniNostra".visualizzaProfiloEx('14')
+
+--Funzione che dato l'id di uno studente permette di visualizzare gli insegnamenti del suo cdl 
+--Parametri : idUtente(integer)
+--Eccezioni : se l'id inserito non è di uno studente 
+		
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaCdl(
+		  idU integer
+		)
+		RETURNS TABLE (
+			codiceIns integer,
+			nomeIns varchar(50),
+			cfu integer,
+			codiceCdl varchar(10),
+			annoErogazione  annoEsame,
+			descrizione varchar(200),
+			nome varchar(50),
+			cognome varchar(100)
+			
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			mat integer;
+			idCdl varchar(10);
+			begin	
+				
+				select s.matricola,s.idcorso into mat,idCdl from "UniNostra".studente s where s.idutente = idU;
+				if mat is null then 
+					raise exception 'l^id inserito non appartiene ad uno studente';
+				end if;
+				
+				RETURN QUERY
+					select i.codice , i.nome , i.cfu, p.codicecorso,p.annoerogazione ,i.descrizione , u.nome , u.cognome 
+					from "UniNostra".pianostudi p inner join "UniNostra".insegnamento i on i.codice = p.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i.iddocente  
+					where p.codicecorso = idCdl ;
 			 END;
 		 $$;
 
+	--select * from "UniNostra".visualizzaCdl('1')
+		
+--Funzione che dato l'id di uno studente, restituisce informazioni sul suo corso di laurea
+--Parametri : idUtente(integer)
+--Eccezioni : se l'id inserito non è di uno stidente 
 
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaInfoCdl(
+		  idU integer
+		)
+		RETURNS TABLE (
+			codiceCdl varchar(10),
+			nomeCdl varchar(50),
+			descrizione varchar(200),
+			isAttivo bool,
+			durata tipoCorsoLaurea 
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			mat integer;
+			idCdl varchar(10);
+			begin	
+				
+				select s.matricola,s.idcorso into mat,idCdl from "UniNostra".studente s where s.idutente = idU;
+				if mat is null then 
+					raise exception 'l^id inserito non appartiene ad uno studente';
+				end if;
+				
+				RETURN QUERY
+					select c.codice , c.nome , c.descrizione , c.isattivo , c.durata 
+					from "UniNostra".corsodilaurea c 
+					where c.codice = idCdl;
+			 END;
+		 $$;
 
-
-
-
-
+	select * from "UniNostra".visualizzaInfoCdl('11');
 
 
 

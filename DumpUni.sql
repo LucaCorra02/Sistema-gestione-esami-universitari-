@@ -6,7 +6,7 @@ SET search_path TO "UniNostra";
 --Creazioen tipo utente, ("Studente","Docente","Segretario")
 CREATE TYPE tipoUtente AS ENUM ('Studente', 'Docente', 'Segretario'); --aggiungere ex studente ?
 
---Tipo durata del corso di laurea, 3 anni per la triennale e 5 per la magistrale
+--Tipo durata del corso di laurea, 3 anni per la triennale e 2 per la magistrale
 create type tipoCorsoLaurea as enum ('3','5');
 
 --Possibili stati di "accetazione" di un voto di un esame
@@ -417,12 +417,12 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 	
-	select * from "UniNostra".studente s 
-	select * from "UniNostra".exstudente e 
-	select * from "UniNostra".utente u 
-	delete from "UniNostra".studente s where s.matricola = '3'
+	--select * from "UniNostra".studente s 
+	--select * from "UniNostra".exstudente e 
+	--select * from "UniNostra".utente u 
+	--delete from "UniNostra".studente s where s.matricola = '3'
 
-	call "UniNostra".aggiungiStudente('Giacomo','Comitani','giacomo.comitani@studenti.UniNostra','1234','cf5','3930582002','vimodrone mi','2002-11-03','FX102');
+	call "UniNostra".aggiungiStudente('Giacomo','Comitani','giacomo.comitani@studenti.UniNostra','1234','cf5','3930582002','vimodrone mi','2002-11-03','FX101');
 
 --funzione per il cambio di corso di laurea di uno studente to do
 
@@ -1148,7 +1148,7 @@ create table "UniNostra".PianoStudi(
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controlloAppello();
 
 	--select * from "UniNostra".appello a 
-	drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
+	--drop trigger controllaIscrizioniAppelli on "UniNostra".iscrizioneesame;
 
 --Trigger che controlla che uno studente all'atto dell'iscrizione ad un certo appello non abbia già un voto registrato come Accettato per quel insegnamento.  
 --Action : insert sulla tabella iscrizioneEsami 
@@ -1267,7 +1267,7 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER storicoStud before delete on "UniNostra".studente 
 	FOR EACH ROW EXECUTE function "UniNostra".storicoStudente();
 
-	drop trigger storicoStud on "UniNostra".studente 
+	--drop trigger storicoStud on "UniNostra".studente 
 
 	---RIATTIVARE TRIGGER ISCRIZIONI APPELLI
 	---RISCRIVERE AD UN ALTRO CORSO DI LAUREA
@@ -1312,7 +1312,7 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".propedeuticita p 
 	
 	
-	call "UniNostra".inserimentoAppello('6','4','bertone','bho','2023/09/11','10:00:00','13:00:00','FX101');
+	call "UniNostra".inserimentoAppello('10','1','bertone','bho','2023/09/13','10:00:00','13:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
 	values('4','omega','bho','2023/09/13','18:00:00','19:50:00','aperto','FX101');
 
