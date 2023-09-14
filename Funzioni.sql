@@ -647,6 +647,293 @@ select * from "UniNostra".studente s
 
 	--select * from "UniNostra".visualizzaidCdl();
 	select * from "UniNostra".utente u 
+	
+	
+--FUNZIONI PER I DOCENTI 
+	
+--updatare le password dei docenti con l'hash
+select * from "UniNostra".docente d 
+select * from "UniNostra".utente u 
+select * from "UniNostra".insegnamento i 
+update "UniNostra".utente set "password" = md5('1234')::varchar(20) where idutente = '1'
 
 
 
+--Funzione che dato l'id di un docente permette di visualizzarne le informazioni 
+--Parametri : idUtente (integer)
+--Eccezioni : se l'id insertio non appartien ad un utente
+
+	CREATE OR REPLACE FUNCTION "UniNostra".profiloDocente(
+		idDoc integer 
+	)
+	RETURNS TABLE (
+		nome varchar(50),
+		cognome varchar(100),
+		indUfficio varchar(100),
+		telefono varchar(10),
+		numDocenze integer,
+		docenze text
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare
+		docenze text;
+		nomeIns text;
+		countIns integer;
+		begin	
+			
+			perform * from "UniNostra".docente d where d.idutente = idDoc;
+			if not found then 
+				raise exception 'l^id inserito non appartiene ad un docente';
+			end if;
+		
+			countIns :=0;
+			for nomeIns in select i.nome from "UniNostra".insegnamento i where i.iddocente  = idDoc
+				loop 
+					if countIns = 0 then 
+						docenze := nomeIns;
+					else 
+						docenze := CONCAT (docenze ,', ', nomeIns);
+					end if;
+					countIns := countIns + 1;
+				end loop;
+		
+		
+			RETURN QUERY
+				select u.nome , u.cognome ,d.indirizzoufficio, d.cellulareinterno, countIns, docenze
+				from "UniNostra".docente d inner join "UniNostra".utente u on d.idutente = u.idutente 
+				where d.idutente = idDoc;
+		 END;
+	 $$;
+	--select * from "UniNostra".profiloDocente('24')
+	
+--Funzione che dato l'id di un docente ritorna i cdl in cui opera
+--Parametri idUtente(integer)
+--Eccezioni : se l'id inserito non appartiene ad un docente
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".cdlDocente(
+		idDoc integer 
+	)
+	RETURNS TABLE (
+		cdl varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin	
+			
+			perform * from "UniNostra".docente d where d.idutente = idDoc;
+			if not found then 
+				raise exception 'l^id inserito non appartiene ad un docente';
+			end if;
+		
+			RETURN QUERY
+				select distinct p.codicecorso 
+				from "UniNostra".insegnamento i inner join "UniNostra".pianostudi p on i.codice = p.codiceinsegnamento 
+				where i.iddocente = idDoc;
+		 END;
+	 $$;
+	
+	--select * from "UniNostra".cdlDocente('24');
+	
+--Funzione che dato il codiced di un corso di laurea, restituisce tuti i suoi insegnamenti tenuti dal docente selezionato
+--Parametri : idCdl (varchar(10)
+--Eccezioni : l'id del cordo di laurea inserito non è valido 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaCdlDoc(
+		  idCdl varchar(10), idDoc integer
+		)
+		RETURNS TABLE (
+			codiceIns integer,
+			nomeIns varchar(50),
+			cfu integer,
+			codiceCdl varchar(10),
+			annoErogazione  annoEsame,
+			descrizione varchar(200),
+			nome varchar(50),
+			cognome varchar(100)
+		)
+		LANGUAGE plpgsql
+		AS $$
+		declare 
+			begin	
+				
+				perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+				if not found then 
+					raise exception 'il cdl inserito %, non esiste',idCdl;
+				end if;
+			
+				perform * from "UniNostra".corsodilaurea c where c.codice = idCdl and c.isattivo = false ;
+				if found then 
+					raise exception 'il cdl selezionato % non contiene insegnamenti, è inattivo',idCdl;
+				end if;
+				
+				RETURN QUERY
+					select i.codice, i.nome  , i.cfu, p.codicecorso , p.annoerogazione , i.descrizione , u.nome , u.cognome 
+					from "UniNostra".pianostudi p inner join "UniNostra".insegnamento i on p.codiceinsegnamento = i.codice inner join "UniNostra".utente u on u.idutente = i.iddocente 
+					where p.codicecorso = idCdl and i.iddocente = idDoc
+					order by p.annoerogazione ;
+			 END;
+		 $$;
+		
+	--select * from "UniNostra".visualizzaCdlDoc('FX101','4');
+
+--Dato l'id di un docente ritorna il numero dei suoi insegnameni 
+--Parametri : idDocente (integer)
+--Eccezioni : se l'id inserito non è di un docente 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".numInsegnamenti(
+		  idDoc integer
+		)
+		RETURNS TABLE (
+			numIns bigint
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".docente d where d.idutente = idDoc;
+				if not found then 
+					raise exception 'l^id inserito non appartiene ad un docente';
+				end if;
+				
+				RETURN QUERY
+					select count(distinct p.codiceinsegnamento) 
+					from "UniNostra".insegnamento i inner join "UniNostra".pianostudi p on i.codice = p.codiceinsegnamento 
+					where i.iddocente = idDoc;
+			 END;
+		 $$;
+		
+	--select * from "UniNostra".numInsegnamenti('24');
+		
+--Funzione che dato l'id di un docente, restituisce gli id degli insegnameni che detiene 
+--Parametro : idUtente (integer)
+--Eccezioni : l'id utente inserito non è di un docente 		
+
+		CREATE OR REPLACE FUNCTION "UniNostra".idCorsiDoc(
+		  idDoc integer
+		)
+		RETURNS TABLE (
+			idIns integer,
+			nome varchar(50)
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".docente d where d.idutente = idDoc;
+				if not found then 
+					raise exception 'l^id inserito non appartiene ad un docente';
+				end if;
+				
+				RETURN QUERY
+					select distinct p.codiceinsegnamento, i.nome
+					from "UniNostra".insegnamento i inner join "UniNostra".pianostudi p on i.codice = p.codiceinsegnamento 
+					where i.iddocente = idDoc;
+			 END;
+		 $$;
+		
+		
+		--select * from "UniNostra".idCorsiDoc('1')
+		
+--Funzione che dato l'id di un docente restituisce gli appelli aperti
+--Parametri : idDocente (integer)
+--Eccezioni : se l'id inserito non appartiene ad un docente
+		
+	CREATE OR REPLACE FUNCTION "UniNostra".appelliApertiDoc(
+		  idDoc integer
+		)
+		RETURNS TABLE (
+			idApp integer,
+			idIns integer,
+			nomeIns varchar(50),
+			cfu integer,
+			cdl varchar(10),
+			annoErogazione annoEsame,
+			dataEsame date,
+			oraInizio time,
+			oraFine time,
+			aula varchar(50),
+			note varchar(200),
+			stato tipostatoAppello
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".docente d where d.idutente = idDoc;
+				if not found then 
+					raise exception 'l^id inserito non appartiene ad un docente';
+				end if;
+				
+				RETURN QUERY
+					select distinct a.idappello ,a.codiceinsegnamento,i2.nome , i2.cfu ,a.cdl,p.annoerogazione ,a.dataesame , a.orainizio ,a.orafine ,a.aula ,a.note , a.statoappello 
+					from "UniNostra".appello a inner join "UniNostra".insegnamento i2 on a.codiceinsegnamento = i2.codice inner join "UniNostra".pianostudi p on p.codiceinsegnamento = i2.codice and a.cdl = p.codicecorso  
+					where i2.iddocente = idDoc and a.statoappello = 'aperto'
+					order by a.dataesame desc;
+			 END;
+		 $$;
+	
+	--select * from "UniNostra".appelliApertiDoc('1');
+		
+--Funzione che dato l'id di un appello ritorna il numero di iscritti
+--Parametri : idAppello (integer)
+--Eccezioni : se l'id della appello non esite 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".numIscrittiA(
+		  idApp integer
+		)
+		RETURNS TABLE (
+			numIscritti bigint
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".appello a where a.idappello = idApp;
+				if not found then 
+					raise exception 'l^appello non esiste';
+				end if;
+				
+				RETURN QUERY
+					select count(i.matricola)
+					from "UniNostra".iscrizioneesame i 
+					where i.id = idApp and i.stato = 'Iscritto';
+			 END;
+		 $$;
+		
+	--select * from "UniNostra".numIscrittiA('58')
+	select * from "UniNostra".appello a where a.statoappello = 'aperto'
+		
+--Funzione che dato l'id di un appello ritorna tutti gli studenti iscritti
+--Paremtri : idApp (integer)
+--Eccezioni : se l'id dell'appello non esiste 
+	
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".iscrittiAppello(
+		  idApp integer
+		)
+		RETURNS TABLE (
+			matricola integer,
+			nome varchar(50),
+			cognome varchar(100),
+			stato tipoStatoVoto,
+			cdl varchar(10)
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				perform * from "UniNostra".appello a where a.idappello = idApp;
+				if not found then 
+					raise exception 'l^appello non esiste';
+				end if;
+				
+				RETURN QUERY
+					select i.matricola , u.nome , u.cognome , i.stato , s.idcorso 
+					from "UniNostra".iscrizioneesame i inner join "UniNostra".studente s on i.matricola = s.matricola inner join "UniNostra".utente u on u.idutente = s.idutente
+					where i.id = idApp and i.stato = 'Iscritto'
+					order by i.matricola ;
+			 END;
+		 $$;
+	
+		
+		

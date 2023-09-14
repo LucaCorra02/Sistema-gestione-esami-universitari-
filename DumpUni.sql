@@ -849,7 +849,7 @@ create table "UniNostra".PianoStudi(
 	end 
 	$$ language plpgsql;
 	
-	--call "UniNostra".registraVotoEsame('1','1','15',30,true);
+	call "UniNostra".registraVotoEsame('1','1','45',null ,false);
 
 --Funzione che permette di aggiornare la variabile inCorso di uno studente 
 --Parametri : Matricola(integer)
@@ -932,7 +932,7 @@ create table "UniNostra".PianoStudi(
 	end; 
 	$$ language plpgsql;
 	
-	--call "UniNostra".registraLaurea(1,'Laureato',90)
+	--call "UniNostra".registraLaurea(4,'Laureato',104)
 	
 
 --fixare il fatto che la chiusura degli appelli non si aggiorna 
@@ -1225,6 +1225,8 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER controllaTurniE BEFORE insert on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".controllaTurni();
 
+	--drop trigger controllaTurniE  on "UniNostra".iscrizioneesame  
+
 --Trigger, quando uno studente accetta un voto di un certo esame, viene automaticamente disiscritto da tutti gli altri appelli di quel esame a cui si era iscritto. 
 --Action : update di iscrizione studente
 
@@ -1291,14 +1293,15 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".pianostudi p where p.codicecorso= 'FX102';
 	'6' '10' '4'
 	--29 30 31
-	select * from "UniNostra".appello a where a.cdl = 'FX102';
+	select * from "UniNostra".appello a where a.cdl = 'FX101';
 	--40 --41 --42
+	select * from "UniNostra".studente s 
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('2','40','27','Accettato',false);
+	values('4','47','25','Accettato',false);
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('2','41','28','Accettato',false);
+	values('4','50','30','Accettato',true);
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('2','42','29','Accettato',false);
+	values('4','52','23','Accettato',false);
 
 	
 	call "UniNostra".registraLaurea('2','Laureato','108');
@@ -1327,7 +1330,11 @@ create table "UniNostra".PianoStudi(
 	
 	call "UniNostra".inserimentoAppello('10','1','bertone','bho','2023/09/13','10:00:00','13:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
-	values('4','omega','bho','2023/09/13','18:00:00','19:50:00','aperto','FX101');
+	values('10','lambda','bho','2023/09/13','18:00:00','19:50:00','chiuso','FX101');
+
+
+
+
 
 	call "UniNostra".inserisciIscrizioneEsame('1','21');
 
