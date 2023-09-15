@@ -1085,4 +1085,41 @@ update "UniNostra".utente set "password" = md5('1234')::varchar(20) where iduten
 	--select * from "UniNostra".studPartecipantiStorico('41');
 	--select * from "UniNostra".studPartecipanti('41');
 		
+--Funzione che dato l'id di un docente ritorna gli insegnamenti che ha tenuto in precedenza
+--Parametri : idDocente (integer)
+--Eccezioni : l'id inserito non appartiene ad un docente 
+		
+	CREATE OR REPLACE FUNCTION "UniNostra".storicoInsegnamenti(
+	  idDoc integer
+	)
+	RETURNS TABLE (
+		idIns integer,
+		nomeIns varchar(100),
+		cfu integer,
+		annoInizio integer,
+		annoFine integer,
+		nome varchar(50),
+		cognome varchar(100)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin
+			
+			perform * from "UniNostra".docente d where d.idutente = idDoc; 
+			if not found then 
+				raise exception 'l^id inserito non appartiene ad un docente';
+			end if;
+			
+			RETURN QUERY
+				select e.codiceinsegnamento ,e.nome, e.cfu ,e.annoinizio ,e.annofine , u.nome ,u.cognome 
+				from "UniNostra".exinsegnamento e inner join "UniNostra".utente u on e.iddocente = u.idutente 
+				where e.iddocente = idDoc;
+		 END;
+	 $$;	
+	
+	--select u.nome , u.cognome , i.codice  from "UniNostra".insegnamento i inner join "UniNostra".utente u on i.iddocente = u.idutente 
+	--select * from "UniNostra".storicoInsegnamenti('4');
+		
+		
+		
 		

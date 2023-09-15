@@ -303,12 +303,12 @@ create table "UniNostra".PianoStudi(
 		upEmail varchar(50);
 		upPsw varchar(32);
 	begin 
-		perform * from "UniNostra".utente u where u.email = emailU ; 
+		perform * from "UniNostra".utente u where lower(u.email) = lower(emailU) ; 
 		if not found then 
 			raise exception 'Email non esistente';
 		end if; 
 		
-		perform * from "UniNostra".utente u where u.email = emailU and u.password = md5(pssw)::varchar(20); 
+		perform * from "UniNostra".utente u where lower(u.email) = lower(emailU) and u.password = md5(pssw)::varchar(20); 
 		if not found then 
 			raise exception 'accesso non autorizzato';
 		end if;
@@ -327,7 +327,7 @@ create table "UniNostra".PianoStudi(
 
 		update "UniNostra".utente
 		set password = upPsw , email = emailU
-		where email = emailU;
+		where lower(email) = lower(emailU);
 	end;
 	$$language plpgsql;
 
