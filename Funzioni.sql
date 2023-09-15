@@ -934,6 +934,64 @@ update "UniNostra".utente set "password" = md5('1234')::varchar(20) where iduten
 					order by i.matricola ;
 			 END;
 		 $$;
+		
+--Funzione che permette di visualizzare gli appelli chiusi di un docente 
+--Parametri : idDodcente (integer)
+--Eccezioni : se l'id inserito non appartiene al docente 
+		
+	CREATE OR REPLACE FUNCTION "UniNostra".appelliChiusiDoc(
+		  idDoc integer
+		)
+		RETURNS TABLE (
+			idApp integer,
+			idIns integer,
+			nomeIns varchar(50),
+			cfu integer,
+			cdl varchar(10),
+			annoErogazione annoEsame,
+			dataEsame date,
+			oraInizio time,
+			oraFine time,
+			aula varchar(50),
+			note varchar(200),
+			stato tipostatoAppello
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".docente d where d.idutente = idDoc;
+				if not found then 
+					raise exception 'l^id inserito non appartiene ad un docente';
+				end if;
+				
+				RETURN QUERY
+					select distinct a.idappello ,a.codiceinsegnamento,i2.nome , i2.cfu ,a.cdl,p.annoerogazione ,a.dataesame , a.orainizio ,a.orafine ,a.aula ,a.note , a.statoappello 
+					from "UniNostra".appello a inner join "UniNostra".insegnamento i2 on a.codiceinsegnamento = i2.codice inner join "UniNostra".pianostudi p on p.codiceinsegnamento = i2.codice and a.cdl = p.codicecorso  
+					where i2.iddocente = idDoc and a.statoappello = 'chiuso'
+					order by a.dataesame asc;
+			 END;
+		 $$;
+		
+		select * from "UniNostra".appelliChiusiDoc('1');
+		
+		select * from "UniNostra".iscrizioneesame i 
+		
+		select * from "UniNostra".appello a inner join "UniNostra".insegnamento i on a.codiceinsegnamento = i.codice where a.idappello = '85';
+	
+		select * from "UniNostra".propedeuticita p 
+		--53, 38, 11
+		update "UniNostra".iscrizioneesame set stato = 'Iscritto', votoesame = null ,islode  = null where id = '53'
+
+		
+		
+		
+		
+		
+		
+		
+		
+		
 	
 		
 		

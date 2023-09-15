@@ -371,8 +371,11 @@ create table "UniNostra".PianoStudi(
 	)
 	as $$
 	declare 
+		cdl varchar(10);
 		idU integer; 
 		exStud bool;
+		nonInserito bool;
+		ex "UniNostra".exstudente%rowtype;
 	begin
 		
 		perform * from "UniNostra".corsodilaurea c where c.codice = idCorsoU; 
@@ -385,15 +388,44 @@ create table "UniNostra".PianoStudi(
 			raise exception 'lo studente non può iscriversi al corso di laurea in quanto è inattivo (senza insegnamenti)';
 		end if;
 	
+		exStud := false;
+		for ex in select * from "UniNostra".exstudente e inner join "UniNostra".utente u on e.idutente = u.idutente where u.email = emailU
+			loop 
+				if ex.codicecorso = idCorsoU then
+					raise exception 'lo studente ha già una laura per il corso di studi %',idCorsoU;
+				end if;
+				exstud := true;
+			end loop;
+		
+		if exstud then 
+			insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
+			values(telefonoU,residenzaU,datanascitaU,ex.idutente,idCorsoU);
+		else
+			perform * from "UniNostra".utente u where u.email = emailU;
+			if found then 
+				select s.idcorso into cdl from "UniNostra".utente u inner join "UniNostra".studente s on u.idutente = s.idutente;
+				raise exception 'Lo studente risulta già iscritto al corso di laurea %',cdl;
+			else
+				call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,pssw,'Studente',cfU);
+				select u.idutente into idU from "UniNostra".utente u where u.email = emailU;	
+			
+				insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
+				values(telefonoU,residenzaU,datanascitaU,idU,idCorsoU);
+			end if;
+		end if;
+	end;
+	$$language plpgsql;
+		
+		/*
 		exStud := true;
 		perform * from "UniNostra".Utente u 
-		where u.email = emailU or u.cf = cfU and exists (
+		where u.email = emailU or u.cf = cfU and not exists (
 			select *
 			from "UniNostra".exstudente e 
 			where e.idutente = idU
 		
 		); 
-		if not found then 
+		if found then 
 			raise exception 'Lo studente risulta già iscritto ad un corso di laurea';
 		else 
 			exStud := false;
@@ -414,16 +446,12 @@ create table "UniNostra".PianoStudi(
 	
 		insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
 		values(telefonoU,residenzaU,datanascitaU,idU,idCorsoU);
-		
-	end;
-	$$language plpgsql;
+		*/
 	
-	--select * from "UniNostra".studente s 
-	--select * from "UniNostra".exstudente e 
-	--select * from "UniNostra".utente u 
-	--delete from "UniNostra".studente s where s.matricola = '3'
 
-	call "UniNostra".aggiungiStudente('Giacomo','Comitani','giacomo.comitani@studenti.UniNostra','1234','cf5','3930582002','vimodrone mi','2002-11-03','FX101');
+	--elliminare andrea e sistemare aggiungi studete. 
+	--call "UniNostra".aggiungiStudente('giacomo','comitani','giacomo.comitani@studenti.UniNostra','1234','cf7','3930582002','vimo','2002-11-03','MD101');
+	--call "UniNostra".aggiungiStudente('Andrea','Galliano','andrea.galliano@studenti.UniNostra','1234','cf7','3930582002','gallarabia mi','2002-11-03','FX101');
 
 --funzione per il cambio di corso di laurea di uno studente to do
 
@@ -849,7 +877,7 @@ create table "UniNostra".PianoStudi(
 	end 
 	$$ language plpgsql;
 	
-	call "UniNostra".registraVotoEsame('1','1','45',null ,false);
+	--call "UniNostra".registraVotoEsame('1','1','53',20 ,false);
 
 --Funzione che permette di aggiornare la variabile inCorso di uno studente 
 --Parametri : Matricola(integer)
@@ -1236,11 +1264,11 @@ create table "UniNostra".PianoStudi(
 		codIns "UniNostra".appello.codiceinsegnamento %type;
 		idApp "UniNostra".iscrizioneesame.id%type;
 	begin 
-		select a.codiceinsegnamento into codIns from "UniNostra".appello a where a.idappello = new.id;
-
+		select a.codiceinsegnamento into codIns from "UniNostra".appello a where a.idappello = new.id;	
+	
 		if old.stato = 'In attesa' and new.stato = 'Accettato' then 
 			for idApp in select i.id from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello 
-			where i.id <> new.id and a.codiceinsegnamento = codIns and i.matricola = new.matricola and i.stato = 'Iscritto' or i.stato = 'In attesa'
+			where i.id <> new.id and a.codiceinsegnamento = codIns and i.matricola = new.matricola and (i.stato = 'Iscritto' or i.stato = 'In attesa')
 				loop 
 					delete from "UniNostra".iscrizioneesame i where i.matricola = new.matricola and i.id = idApp;
 				end loop ;
@@ -1248,6 +1276,7 @@ create table "UniNostra".PianoStudi(
 		return new;
 	end 
 	$$ language plpgsql;
+	--
 	
 	CREATE OR REPLACE TRIGGER elliminaIscrizioniPassate after update on "UniNostra".iscrizioneesame  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".disiscriviStudente();
@@ -1282,7 +1311,7 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER storicoStud before delete on "UniNostra".studente 
 	FOR EACH ROW EXECUTE function "UniNostra".storicoStudente();
 
-	--drop trigger storicoStud on "UniNostra".studente 
+	drop trigger storicoStud on "UniNostra".studente 
 
 	---RIATTIVARE TRIGGER ISCRIZIONI APPELLI
 	---RISCRIVERE AD UN ALTRO CORSO DI LAUREA
