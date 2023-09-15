@@ -971,27 +971,118 @@ update "UniNostra".utente set "password" = md5('1234')::varchar(20) where iduten
 					where i2.iddocente = idDoc and a.statoappello = 'chiuso'
 					order by a.dataesame asc;
 			 END;
-		 $$;
+		 $$;	
 		
-		select * from "UniNostra".appelliChiusiDoc('1');
 		
-		select * from "UniNostra".iscrizioneesame i 
-		
-		select * from "UniNostra".appello a inner join "UniNostra".insegnamento i on a.codiceinsegnamento = i.codice where a.idappello = '85';
+		--select * from "UniNostra".utente u 
+		--select * from "UniNostra".iscrizioneesame i 
+		--update "UniNostra".iscrizioneesame set votoesame = null,stato='Iscritto',islode = null where id = '53'
+		--delete from "UniNostra".iscrizioneesame i where matricola = '11'
+		--insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+		--values('11','53',null,'Iscritto',null);
 	
-		select * from "UniNostra".propedeuticita p 
-		--53, 38, 11
-		update "UniNostra".iscrizioneesame set stato = 'Iscritto', votoesame = null ,islode  = null where id = '53'
-
-		
-		
-		
-		
-		
-		
-		
-		
-		
+--Funzione che dato l'id di un appello ritorna il numero di studenti che lo hanno fatto 
+--Parametri : idAppello (integer)
+--Eccezioni : l'id dell'appello inserito non esiste 
 	
+	CREATE OR REPLACE FUNCTION "UniNostra".numPartecipantiApp(
+		  idApp integer
+		)
+		RETURNS TABLE (
+			num bigint
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".appello a where a.idappello = idApp;
+				if not found then 
+					raise exception 'l^appello inserito non esiste';
+				end if;
+				
+				RETURN QUERY
+					select count(i.id)
+					from "UniNostra".iscrizioneesame i
+					where i.id = idApp;
+			 END;
+		 $$;	
+		
+	CREATE OR REPLACE FUNCTION "UniNostra".numPartecipantiStorico(
+		  idApp integer
+		)
+		RETURNS TABLE (
+			num bigint
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				
+				perform * from "UniNostra".appello a where a.idappello = idApp;
+				if not found then 
+					raise exception 'l^appello inserito non esiste';
+				end if;
+				
+				RETURN QUERY
+					select count(s.id)
+					from "UniNostra".storicovalutazioni s 
+					where s.idappello = idApp;
+			 END;
+		 $$;	
+	
+--Funzione che dato l'id di un appello ritorna gli studenti partecipanti studenti
+--Paremetri : idAppello (integer)
+--Eccezioni : -
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".studPartecipanti(
+		  idApp integer
+		)
+		RETURNS TABLE (
+			matricola integer,
+			nome varchar(50),
+			cognome varchar(100),
+			cdl varchar(10),
+			votoE "UniNostra".voto,
+			isLode bool,
+			stato tipoStatoVoto
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin	
+				RETURN QUERY
+					select i.matricola,u.nome ,u.cognome,s.idcorso,i.votoesame ,i.islode, i.stato 
+					from "UniNostra".iscrizioneesame i inner join "UniNostra".studente s on s.matricola = i.matricola inner join "UniNostra".utente u on u.idutente = s.idutente 
+					where i.id = idApp;
+			 END;
+		 $$;	
+	
+--Funzione che dato l'id di un appello ritorna gli studenti partecipanti nello storico
+--Paremetri : idAppello (integer)
+--Eccezioni : -	
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".studPartecipantiStorico(
+		  idApp integer
+		)
+		RETURNS TABLE (
+			matricola integer,
+			nome varchar(50),
+			cognome varchar(100),
+			cdl varchar(10),
+			votoE "UniNostra".voto,
+			isLode bool,
+			stato tipoStatoVoto
+		)
+		LANGUAGE plpgsql
+		AS $$
+			begin
+				RETURN QUERY
+					select e.matricola ,e.nome ,e.cognome, e.codicecorso , s.votoesame , s.islode , s.stato 
+					from "UniNostra".storicovalutazioni s inner join "UniNostra".exstudente e on s.matricola = e.matricola
+					where s.idappello = idApp;
+			 END;
+		 $$;	
+		
+	--select * from "UniNostra".storicovalutazioni s 
+	--select * from "UniNostra".studPartecipantiStorico('41');
+	--select * from "UniNostra".studPartecipanti('41');
 		
 		

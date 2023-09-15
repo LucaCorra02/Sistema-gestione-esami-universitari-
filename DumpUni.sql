@@ -1311,7 +1311,7 @@ create table "UniNostra".PianoStudi(
 	CREATE OR REPLACE TRIGGER storicoStud before delete on "UniNostra".studente 
 	FOR EACH ROW EXECUTE function "UniNostra".storicoStudente();
 
-	drop trigger storicoStud on "UniNostra".studente 
+	--drop trigger storicoStud on "UniNostra".studente 
 
 	---RIATTIVARE TRIGGER ISCRIZIONI APPELLI
 	---RISCRIVERE AD UN ALTRO CORSO DI LAUREA
