@@ -184,8 +184,9 @@ select * from "UniNostra".studente s
 	AS $$
 	declare 
 		mat integer; 
+		idCdl varchar(10);
 		begin	
-			select s.matricola into mat from "UniNostra".studente s where s.idutente = idU;
+			select s.matricola, s.idcorso into mat,idCdl from "UniNostra".studente s where s.idutente = idU;
 			if mat is null then 
 				raise exception 'l^id inserito non appartiene ad uno studente';
 			end if;
@@ -193,12 +194,20 @@ select * from "UniNostra".studente s
 			RETURN QUERY
 				select a.idappello, a.codiceinsegnamento,i2.nome, i2.cfu,a.cdl ,u.nome ,u.cognome ,a.dataesame, i.votoesame, i.islode , i.stato  
 				from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".utente u on u.idutente = i2.iddocente 
-				where i.matricola = mat and i.stato = 'Accettato'
+				where i.matricola = mat and i.stato = 'Accettato' and exists (
+					select *
+					from "UniNostra".pianostudi p 
+					where p.codicecorso = idCdl and p.codiceinsegnamento = i2.codice 
+				)
 				order by a.dataesame desc ;
 		 END;
 	 $$;
 	
-	--select * from "UniNostra".visualizzaEsamiPassati('11');
+	select * from "UniNostra".utente u 
+	select * from "UniNostra".iscrizioneesame i 
+	select * from "UniNostra".visualizzaEsamiPassati('11');
+
+	select * from "UniNostra".propedeuticita p 
 
 --Funzione che dato l'id utente di uno studente, restituisce tutta la sua carriera
 --Parametri : idUtente (integer)
@@ -1119,7 +1128,250 @@ update "UniNostra".utente set "password" = md5('1234')::varchar(20) where iduten
 	
 	--select u.nome , u.cognome , i.codice  from "UniNostra".insegnamento i inner join "UniNostra".utente u on i.iddocente = u.idutente 
 	--select * from "UniNostra".storicoInsegnamenti('4');
+	
+	select * from "UniNostra".iscrizioneesame i 
+	select * from "UniNostra".utente u 
+	
+--FUNZIONI SEGRETARIO
+	
+--Funzione che dato l'id di un segretario, ritorna alcune informazioni riguardanti il suo profilo
+--Parametri : idSegretario 
+--Eccezioni : l'id inserito non appartiene ad un segretario 
+	
 		
+	CREATE OR REPLACE FUNCTION "UniNostra".profiloSegretario(
+	  idSeg integer
+	)
+	RETURNS TABLE (
+		nome varchar(50),
+		cognome varchar(100),
+		cf varchar(16),
+		indirizzo varchar(100),
+		nomeDip varchar(50),
+		cellulareInterno varchar(50)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin
+			perform * from "UniNostra".segretario s where s.idutente = idSeg;
+			if not found then
+				raise exception 'l^id inserito non appartiene ad un segretario';
+			end if;
+			
+			RETURN QUERY
+				select u.nome, u.cognome,u.cf,s.indirizzosegreteria , s.nomedipartimento , s.cellulareinterno 
+				from "UniNostra".segretario s inner join "UniNostra".utente u on s.idutente = u.idutente 
+				where s.idutente = idSeg;
+		 END;
+	 $$;
+
+	select * from "UniNostra".profiloSegretario('13');
+	
+--Funzione che ritorna tutti i corsi di laurea presenti nel db 
+--Parametri : idUtente (integer)
+--Eccezzioni : id utente non esistente 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaTuttiCorsi(
+	  idU integer
+	)
+	RETURNS TABLE (
+		codice varchar(10),
+		nome varchar(50),
+		descrizione varchar(200),
+		durata tipoCorsoLaurea,
+		isAttivo bool
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin
+			perform * from "UniNostra".utente u where u.idutente = idU;
+			if not found then 
+				raise exception 'utente non autorizzato';
+			end if;
 		
+			RETURN QUERY
+				select  c.codice ,c.nome ,c.descrizione , c.durata ,c.isattivo  
+				from "UniNostra".corsodilaurea c ;
+		 END;
+	 $$;
+
+	select * from "UniNostra".visualizzaTuttiCorsi('13');
+
+--Funzione che dato l'id di un cdl, restituisce il numero di studenti iscritti ad esso 
+--Parametri : idCdl (varchar(10)
+--Eccezione : se id cdl non esiste 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".numIscrizioniCdl(
+	  idCdl varchar(10)
+	)
+	returns bigint
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		n bigint;
+		begin
+			perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if not found then 
+				raise exception 'il cdl %, non esiste',idCdl;
+			end if;
 		
+			select count(s.idcorso) into n
+			from "UniNostra".studente s 
+			where s.idcorso = idCdl
+			group by s.idcorso; 
+		
+			if n is null then
+				return 0;
+			else 
+				return n;
+			end if;
+		 END;
+	 $$;
+
+	
+	--select * from "UniNostra".numIscrizioniCdl('FX102');
+
+--Funzione che dato l'id di un cdl, ritorna tutti gli insegnamenti che possono essere aggiunti a quel cdl (non ancora presenti)
+--Parametri : idCdl (varchar(10))
+--Eccezioni : il cdl inserito non esiste 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".insegnamentiDisponibili(
+	  idCdl varchar(10)
+	)
+	returns TABLE(
+		codice integer,
+		nomeIns varchar(50),
+		descrizione varchar(200),
+		cfu integer,
+		nome varchar(50),
+		cognome varchar(100)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+		 
+			perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if not found then 
+				raise exception 'Nessun corso di laurea con codice %',idCdl;
+			end if;
+		
+			return QUERY
+				select i.codice , i.nome , i.descrizione ,i.cfu , u.nome ,u.cognome 
+				from "UniNostra".insegnamento i inner join "UniNostra".utente u on i.iddocente = u.idutente 
+				where not exists (
+					select *
+					from "UniNostra".pianostudi p 
+					where p.codiceinsegnamento = i.codice and p.codicecorso = idCdl
+				);
+		END;
+	 $$;
+	--select * from "UniNostra".insegnamentiDisponibili('')
+
+--Funzione che dato l'id di un insegnamento ne ritorna le sue informazioni 
+--Parametri : idInse (integer)
+--Eccezioni : l'insegnamento non esiste 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".infoIns(
+	  idIns integer
+	)
+	returns TABLE(
+		descrizione varchar(200),
+		cfu integer,
+		nome varchar(50),
+		cognome varchar(100),
+		idDoc integer,
+		codice integer,
+		nomeIns varchar(50)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+			perform * from "UniNostra".insegnamento i where i.codice = idIns;
+			if not found then 
+				raise exception 'nessun insegnamento con id %',idIns;
+			end if;
+		
+			return QUERY
+				select i.descrizione ,i.cfu ,u.nome ,u.cognome ,u.idutente , i.codice , i.nome 
+				from "UniNostra".insegnamento i inner join "UniNostra".utente u on i.iddocente = u.idutente  
+				where i.codice = idIns ;
+		END;
+	 $$;
+	--select * from "UniNostra".infoIns('10');
+
+--Funzione che dato l'id di un cdl ritorna gli anni possibii per gli esami 
+--Parametri : idCdl(varchar 10)
+
+	CREATE OR REPLACE FUNCTION "UniNostra".anniPossibili(
+	  idCdl varchar(10)
+	)
+	RETURNS text[]
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		tipo tipoCorsoLaurea;
+		begin 
+			select c.durata into tipo from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if tipo = '3' then 
+				return array['1','2','3'];
+			else
+				return array['1','2'];
+			end if;
+		END;
+	 $$;
+	
+	select * from "UniNostra".anniPossibili('FX102');
+	
+--Funzione che dato l'id di un utente i docenti a cui puo essere assegnato un insegnamento <3
+--Parametri : idUtente(integer)
+--Eccezioni : se non esiste nessun utente con tale id
+
+	CREATE OR REPLACE FUNCTION "UniNostra".docentiDisponibili(
+	  idU integer
+	)
+	RETURNS table(
+		numInsegnamenti bigint,
+		idDoc integer,
+		nome varchar(50),
+		cognome varchar(100)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+			
+			perform * from "UniNostra".utente u where u.idutente = idU;
+			if not found then 
+				raise exception 'non esiste nessun utente con id %',idU;
+			end if;
+			
+			return QUERY
+				select count(i.codice), i.iddocente , u.nome ,u.cognome  
+				from "UniNostra".insegnamento i inner join "UniNostra".utente u on u.idutente = i.iddocente 
+				group by i.iddocente , u.nome ,u.cognome 
+				having count(i.codice) < 3; 
+		END;
+	 $$;
+	--select * from "UniNostra".docentiDisponibili('1');
+	
+	select * from "UniNostra".utente u where u.tipo = 'Docente';
+	--24 violetta lonati
+	call "UniNostra".inserisciInsegnamento('Medicina Generale','si studiano cose','12','24');
+	call "UniNostra".inserisciInsegnamento('Fisica 1','fisica','12','24');
+	call "UniNostra".inserisciInsegnamento('Fisica 2','fisica 2','6','24');
+	call "UniNostra".inserisciInsegnamento('Fisica 3','fisica 3 difficile','9','24');
+	
+
+	-- 4 -> 6 tolgo
+	-- 6 -> 10  tolgo
+	-- 4 -> 10
+	select * from "UniNostra".propedeuticita p where p.codicelaurea = 'FX101'
+	call "UniNostra".rimuoviPianoStudi('6','FX101');
+	
+
+	
+	
 		

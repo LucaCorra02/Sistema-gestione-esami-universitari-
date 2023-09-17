@@ -230,23 +230,31 @@ create table "UniNostra".PianoStudi(
 --Parametri : Nome dell'insegnamento (varchar), Descrizione(varchar) *, Cfu(integer), IdDocente(integer) 
 --Eccezioni : Se il docente inserito non esite.
 --			  Se il docente tiene già il corso che si vuole inserire. 
+--			  Se esiste già un insegnamento con li stessi crediti e nome
 	
 	create or replace procedure "UniNostra".inserisciInsegnamento ( 
 		nomeInsegnamento varchar(50), Descrizione varchar(200), CfuEsame integer, Docente integer
 	)
 	as $$ 
 	begin 
+		PERFORM * FROM "UniNostra".Insegnamento as i WHERE Lower(replace(i.nome, ' ', '')) = Lower(replace(nomeInsegnamento , ' ', '')) and i.cfu = CfuEsame;
+		if found then 
+			raise exception 'Insegnamento con nome % e cfu % già esistenti',nomeInsegnamento,cfuEsame;
+		end if;
+	
 		PERFORM * FROM "UniNostra".Insegnamento as i WHERE Lower(replace(i.nome, ' ', '')) = Lower(replace(nomeInsegnamento , ' ', '')) and i.cfu = CfuEsame and i.idDocente = Docente ;
     	IF FOUND THEN 
         	RAISE EXCEPTION 'il docente è già responsabile dell insegnamento ';
     	END IF;
+    
+    
 		insert into "UniNostra".Insegnamento(nome, descrizione, cfu, annoInizio,idDocente)
 		values (nomeInsegnamento,Descrizione,CfuEsame, cast(date_part('year', CURRENT_DATE) as integer), Docente);	
 	end;
 	$$ language plpgsql;
 
 	
-	call "UniNostra".inserisciInsegnamento('Anatomia','si studiano cose','24','9');
+	--	call "UniNostra".inserisciInsegnamento('Anatomia','si studiano cose','24','9');
 
 --Aggiornamento responsabile di un corso 
 --Prametri : id dell'insegnamento che si vuole aggiornare (integer), id del nuovo docente (integer)
@@ -656,7 +664,7 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 	
-	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/09','13:10:00','15:15:00','FX101');
+	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/18','13:10:00','15:15:00','FX101');
 	--call "UniNostra".inserimentoAppello('10','1','gamma','bho','2023/09/10','10:50:00','15:15:00','FX102');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
@@ -962,6 +970,105 @@ create table "UniNostra".PianoStudi(
 	
 	--call "UniNostra".registraLaurea(4,'Laureato',104)
 	
+--Procedura che dato l'id di un insegnamento e un cdl di cui fa parte, lo ellimina dal piano di studi 
+--Parametri : idInsegnamento (integer), cdl(varchar(10)
+--Eccezioni : l'insegnamento non esiste 
+--			  il cdl non esiste 
+--			  l'insegnamento non è previsto per quel cdl 
+--			  Ci sono appelli aperti per il l'insegnamento che si vuole elliminare dal piano studi del cdl inserito
+
+	create or replace procedure "UniNostra".rimuoviPianoStudi(
+		idIns integer, idCdl varchar(10)
+	)
+	as $$
+	declare 
+		app "UniNostra".appello%rowtype;
+	begin 
+		
+		perform * from "UniNostra".insegnamento i where i.codice = idIns;
+		if not found then 
+			raise exception 'Non esiste nessun insegnamento con id %',idIns;
+		end if;
+		
+		perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+		if not found then 
+			raise exception 'Non esiste nessun cdl con id%',idCdl;
+		end if;
+	
+		perform * from "UniNostra".pianostudi p where p.codiceinsegnamento = idIns and p.codicecorso = idCdl;
+		if not found then 
+			raise exception 'L^insegnamento % non è previsto per il cdl %',idIns,idCdl;
+		end if;
+		
+		for app in select * from "UniNostra".appello a where a.codiceinsegnamento = idIns and a.cdl = idCdl
+			loop 
+				call "UniNostra".aggiornaStatoAppello(app.idappello);
+				if app.statoappello = 'aperto' then 
+					raise exception 'non puoi elliminare l^insegnamento % dal piano studi %, ha degli appelli aperti',idIns,idCdl;
+				end if;
+			end loop;
+		delete from "UniNostra".pianostudi p where p.codicecorso = idCdl and p.codiceinsegnamento = idIns; 
+		
+	end; 
+	$$ language plpgsql;
+
+	--finire testing
+	
+
+	--call "UniNostra".rimuoviPianoStudi('6','FX101');
+	
+
+--Trigger che agisce all'eliminazione di un insegnamento dal piano di studi di un cdl, elliminando tutte le propredeuticità assegnate e per l'esame elliminato
+--Action : delete di insegnamento dal piano studi 
+	
+	create or replace function "UniNostra".elliminaProp()
+	returns trigger as $$ 
+	declare 
+	begin 
+		delete from "UniNostra".propedeuticita p where p.codicelaurea = old.codicecorso and (p.esame=old.codiceinsegnamento or p.prop =old.codiceinsegnamento );	
+		return new;
+	end;
+	$$ LANGUAGE plpgsql;
+
+
+	CREATE OR REPLACE TRIGGER elliminaPiano after delete  on "UniNostra".pianostudi 
+	FOR EACH ROW EXECUTE FUNCTION elliminaProp();
+	
+--Procedura che dato l'id di un insegnamento aggiorna le seguenti informazioni, se modificate : Descrizone, CFU, Responsabile insegnamento
+--Parametri : idInsegnamento (integer), Descrizione (varchar(200)), cfu integer, idDoc (integer)
+--Eccezioni : idInsegnamento non valido
+
+	create or replace procedure "UniNostra".updateInsegnamento(
+		idIns integer, newDescrizione varchar(200), newCfu integer, newIdDoc integer
+	)
+	as $$
+	declare 
+		oldIns "UniNostra".insegnamento%rowtype;
+	begin 
+		select * into oldIns from "UniNostra".insegnamento i where i.codice = idIns ;
+		if oldIns.codice is null then 
+			raise exception 'Nessun insegnamento con codice %',idIns;
+		end if;
+	
+		if oldIns.descrizione = newDescrizione then 
+			newDescrizione = oldIns.descrizione;
+		end if;
+		if oldIns.cfu = newCfu then 
+			newCfu = oldIns.cfu;
+		end if;
+		if oldIns.iddocente = newIdDoc then 
+			newIdDoc = oldIns.iddocente;
+		end if;
+	
+		update "UniNostra".insegnamento i set descrizione =newDescrizione, cfu = newCfu, iddocente = newIdDoc where i.codice = idIns;
+		
+	end; 
+	$$ language plpgsql;
+
+	select * from "UniNostra".utente u 
+	call "UniNostra".updateInsegnamento('11','modificami','24','9')
+
+	select * from "UniNostra".insegnamento i where i.codice = '11';
 
 --fixare il fatto che la chiusura degli appelli non si aggiorna 
 
