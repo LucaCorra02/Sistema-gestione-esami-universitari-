@@ -189,19 +189,30 @@ create table "UniNostra".PianoStudi(
 --Aggiunta di un corso di laurea 
 --Parametri : Codice del Corso (varchar), Nome del corso (varchar), Descrizione(varchar) *, Durata (magistrale o triennale)
 --Eccezioni : Se la durata non è 3 o 5. 
+--            Se esiste già un corso con lo stesso codice o con lo stesso nome e la stessa durata
 	
 	CREATE OR REPLACE PROCEDURE "UniNostra".inserisciCorsoLaurea(
-    	codice varchar(10), nome varchar(50), descrizione varchar(200), durata tipoCorsoLaurea
+    	codiceN varchar(10), nomeN varchar(50), descrizioneN varchar(200), durataN tipoCorsoLaurea
 	)
 	AS $$
-	BEGIN     
+	BEGIN 
+		
+		perform * from "UniNostra".corsodilaurea c where c.codice = codiceN; 
+		if found then
+			raise exception 'Esiste già un corso di laurea con codice : %',codiceN;
+		end if;
+	
+		perform * from "UniNostra".corsodilaurea c where c.nome = nomeN and c.durata = durataN;
+		if found then
+			raise exception 'Esiste già un corso di laurea con nome % e durata %',nomeN,durataN;
+		end if;
+		
     	INSERT INTO "UniNostra".CorsoDiLaurea(codice, nome, descrizione, durata,isattivo)
-        VALUES (codice,nome,descrizione,durata,false);
+        VALUES (codiceN,nomeN,descrizioneN,durataN,false);
 	END;
 	$$ LANGUAGE plpgsql ;
-	
 
---call "UniNostra".inserisciCorsoLaurea('MD101','Medicina','tirnnale di medicina','3');
+	--call "UniNostra".inserisciCorsoLaurea('MD102','Medicina','tirnnale di medicina','3');
 
 --Funzione che permette di attivare e disattivare un corso di laurea, sara utilizzata internamente. 
 --Parametri : id del corso di laurea (varchar), stato (boolean)
@@ -247,14 +258,13 @@ create table "UniNostra".PianoStudi(
         	RAISE EXCEPTION 'il docente è già responsabile dell insegnamento ';
     	END IF;
     
-    
 		insert into "UniNostra".Insegnamento(nome, descrizione, cfu, annoInizio,idDocente)
 		values (nomeInsegnamento,Descrizione,CfuEsame, cast(date_part('year', CURRENT_DATE) as integer), Docente);	
 	end;
 	$$ language plpgsql;
 
-	
-	--	call "UniNostra".inserisciInsegnamento('Anatomia','si studiano cose','24','9');
+	select * from "UniNostra".insegnamento i ;
+	--call "UniNostra".inserisciInsegnamento('Fisica 2','si studiano cose','6','24');
 
 --Aggiornamento responsabile di un corso 
 --Prametri : id dell'insegnamento che si vuole aggiornare (integer), id del nuovo docente (integer)
@@ -343,16 +353,34 @@ create table "UniNostra".PianoStudi(
 
 --Aggiunta di un docente 
 --Parametri : Nome(varchar), Cognome(varchar),Password(varchar),Email(varchar),tipo(tipoUtente),cf(varchar),indirizzoUfficio (varchar), cellulareInterno(varchar)
+--Eccezioni : email già esistente nel database 
 
 	create or replace procedure "UniNostra".aggiungiDocente(
-		nomeU varchar(50), cognomeU varchar(50), emailU varchar(50),pssw varchar(32), tipoU tipoUtente, cfU varchar(16),
-		indirizzoU varchar(100), cellulareU varchar(10)
+		nomeU varchar(50), cognomeU varchar(50), emailU varchar(50),pssw varchar(32), cfU varchar(16),indirizzoU varchar(100), cellulareU varchar(10)
 	)
 	as $$
 	declare 
 		idU integer;
+		split text;
+		ut "UniNostra".utente%rowtype;
 	begin 
-		call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,pssw,tipoU,cfU);
+		
+		split := SPLIT_PART(emailU,'@',1);
+		for ut in select * from "UniNostra".utente u
+			loop
+				if lower(SPLIT_PART(ut.email ,'@',1)) = lower(split) and ut.tipo <> 'Docente' then 
+					raise exception 'user % già presente',split;
+				end if;
+			end loop;
+		
+		
+		perform * from "UniNostra".utente u where lower(u.email) = lower(emailU);
+		if found then 
+			raise exception 'Docente già presente con email %',emailU;
+		end if;
+		
+		
+		call "UniNostra".aggiungiUtente (nomeU,cognomeU,emailU,pssw,'Docente',cfU);
 		
 		select u.idUtente into idU 
 		from "UniNostra".utente u 
@@ -363,6 +391,8 @@ create table "UniNostra".PianoStudi(
 	
 	end;
 	$$language plpgsql;
+	select * from "UniNostra".utente u 
+
 
 	--call "UniNostra".aggiungiDocente ('Violetta','Lonati','ViolettaLonati@docenti.UniNostra','1234','Docente','cf6','via celoria 18','3331888772');
 
@@ -384,6 +414,8 @@ create table "UniNostra".PianoStudi(
 		exStud bool;
 		nonInserito bool;
 		ex "UniNostra".exstudente%rowtype;
+		split text;
+		ut "UniNostra".utente%rowtype;
 	begin
 		
 		perform * from "UniNostra".corsodilaurea c where c.codice = idCorsoU; 
@@ -396,20 +428,33 @@ create table "UniNostra".PianoStudi(
 			raise exception 'lo studente non può iscriversi al corso di laurea in quanto è inattivo (senza insegnamenti)';
 		end if;
 	
+	
+		split := SPLIT_PART(emailU,'@',1);
+		for ut in select * from "UniNostra".utente u
+			loop
+				if lower(SPLIT_PART(ut.email ,'@',1)) = lower(split) and ut.tipo <> 'Studente' then 
+					raise exception 'user % già presente',split;
+				end if;
+			end loop;
+	
 		exStud := false;
 		for ex in select * from "UniNostra".exstudente e inner join "UniNostra".utente u on e.idutente = u.idutente where u.email = emailU
 			loop 
-				if ex.codicecorso = idCorsoU then
+				if ex.codicecorso = idCorsoU and ex.stato = 'Laureato' then
 					raise exception 'lo studente ha già una laura per il corso di studi %',idCorsoU;
 				end if;
 				exstud := true;
 			end loop;
 		
 		if exstud then 
+			perform * from "UniNostra".utente u inner join "UniNostra".studente s on u.idutente = s.idutente where lower(u.email) = lower(emailU);
+			if found then 
+				raise exception 'lo studente è gia iscritto ad un cdl';
+			end if;
 			insert into "UniNostra".studente (telefono,indirizzoresidenza,datanascita,idutente,idcorso)
 			values(telefonoU,residenzaU,datanascitaU,ex.idutente,idCorsoU);
 		else
-			perform * from "UniNostra".utente u where u.email = emailU;
+			perform * from "UniNostra".utente u where lower(u.email) = lower(emailU);
 			if found then 
 				select s.idcorso into cdl from "UniNostra".utente u inner join "UniNostra".studente s on u.idutente = s.idutente;
 				raise exception 'Lo studente risulta già iscritto al corso di laurea %',cdl;
@@ -423,7 +468,12 @@ create table "UniNostra".PianoStudi(
 		end if;
 	end;
 	$$language plpgsql;
+
+	drop procedure  "UniNostra".aggiungiStudente
+	select * from "UniNostra".utente u 
+	select * from "UniNostra".studente s 
 		
+	--condizione che l'ex studente deve essere laureato
 		/*
 		exStud := true;
 		perform * from "UniNostra".Utente u 
@@ -461,7 +511,43 @@ create table "UniNostra".PianoStudi(
 	--call "UniNostra".aggiungiStudente('giacomo','comitani','giacomo.comitani@studenti.UniNostra','1234','cf7','3930582002','vimo','2002-11-03','MD101');
 	--call "UniNostra".aggiungiStudente('Andrea','Galliano','andrea.galliano@studenti.UniNostra','1234','cf7','3930582002','gallarabia mi','2002-11-03','FX101');
 
---funzione per il cambio di corso di laurea di uno studente to do
+--Procedura che permette il cambio di alcune informazioni anagrafiche per uno studente 
+--Parametri : Matricola (integer), telefono varchar(20), DataNascita date, residenza varchar(100). 
+--Eccezioni : Matricola insesistente
+	
+	create or replace procedure "UniNostra".updateInfoStudente( 
+		mat integer, telefonoN varchar(20), dataN date, residenzaN varchar(100)
+	)
+	as $$
+	declare
+		stud "UniNostra".studente%rowtype;
+	begin
+		select * into stud from "UniNostra".studente s where s.matricola = mat;
+		if stud.matricola is null then 
+			raise exception 'nessun studente con matricola %',mat;
+		end if; 
+	
+		if telefonoN = stud.telefono then 
+			telefonoN := stud.telefono ;
+		end if;
+	
+		if dataN = stud.datanascita then 
+			dataN := stud.datanascita;
+		end if;
+		
+		if residenzaN = stud.indirizzoresidenza then 
+			residenzaN := stud.indirizzoresidenza;
+		end if;
+		
+		update "UniNostra".studente s set telefono = telefonoN, datanascita = dataN, indirizzoresidenza = residenzaN where s.matricola = mat;
+		
+	end;
+	$$language plpgsql;
+
+	call "UniNostra".updateInfoStudente('1','222222','2002/08/05','Busto Arsizio Va')
+	
+	
+	
 
 --funzione per l'inserimento di un segretario, può essere utilizzata solamenete da altri segretari
 --Parametri : nomeU varchar(50), cognomeU varchar(100), emailU varchar(50), passwordU varchar(32), cfU varchar(16),
@@ -475,8 +561,19 @@ create table "UniNostra".PianoStudi(
 	as $$
 	declare 
 		idU integer; 
+		split text;
+		ut "UniNostra".utente%rowtype;
 	begin
-		perform * from "UniNostra".utente u where u.email = emailU or u.cf = cfU;
+		
+		split := SPLIT_PART(emailU,'@',1);
+		for ut in select * from "UniNostra".utente u
+			loop
+				if lower(SPLIT_PART(ut.email ,'@',1)) = lower(split) and ut.tipo <> 'Segretario' then 
+					raise exception 'user % già presente',split;
+				end if;
+			end loop;
+		
+		perform * from "UniNostra".utente u where lower(u.email) = lower(emailU) or u.cf = cfU;
 		if found then 
 			raise exception 'segretario già registrato nel sistema';
 		end if; 
@@ -489,7 +586,7 @@ create table "UniNostra".PianoStudi(
 		
 	end;
 	$$language plpgsql;
-
+	select * from "UniNostra".utente u 
 	--call "UniNostra".inserisciSegretario('Luigi','Pepe','LuigiPepe@segreteria.UniNostra','1234','cf4','via celoria 18','informatica','383838');
 
 --funzione per inserimento insegnamenti nei corsi di laurea, li insegnamenti sono condivisi tra corsi di laurea
@@ -574,6 +671,53 @@ create table "UniNostra".PianoStudi(
 	$$language plpgsql;
 
 	--call "UniNostra".inserisciPropedeuticita('6','10','FX102');
+
+--Procedura che permette di eliminare una certa propedeuticità da un certo cdl. 
+--Parametri : idCorso (Integer), idCorsoPropedeutica(integer), idCdl varchar(10)
+--Eccezioni : nessun insegnamento con id inserito 
+--			  nessun insegnamento con id propredeuticità inserito 
+--            nessun corso con id cdl inserito 
+--			  nel manifesto di studi del cdl inserito non esistono gli esami con id inseriti 
+--			  non esiste la propedeuticità idCorso -> idCorsoPropedeutico nel cdl inserito
+
+create or replace procedure "UniNostra".elliminaPropedeuticita (
+		codice1 integer, codice2 integer, codiceCdl varchar(10)
+	)
+	as $$
+	begin 
+		perform * from "UniNostra".insegnamento i where i.codice = codice1;
+		if not found then 
+			raise exception 'nessun insegnamento con id %',codice1;
+		end if;
+		perform * from "UniNostra".insegnamento i where i.codice = codice2;
+		if not found then 
+			raise exception 'nessun insegnamento con id %',codice2;
+		end if;
+		perform * from "UniNostra".corsodilaurea c where c.codice = codiceCdl;
+		if not found then 
+			raise exception 'nessun corso con id: %',codiceCdl;
+		end if;
+		perform * from "UniNostra".pianostudi p where p.codicecorso = codiceCdl and p.codiceinsegnamento = codice1;
+		if not found then
+			raise exception 'insegnamento %, non previsto dal cdl %',codice1,codiceCdl;
+		end if;
+		perform * from "UniNostra".pianostudi p where p.codicecorso = codiceCdl and p.codiceinsegnamento = codice2;
+		if not found then
+			raise exception 'insegnamento %, non previsto dal cdl %',codice2,codiceCdl;
+		end if;
+	
+		perform * from "UniNostra".propedeuticita p where p.esame = codice1 and p.prop = codice2 and p.codicelaurea = codiceCdl;
+		if not found then
+			raise exception 'non esiste la propedeuticità esame : % -> propedeutico a : % nel cdl %',codice2,codice1,codiceCdl;
+		end if;
+		
+		delete from "UniNostra".propedeuticita p where p.esame = codice1 and p.prop = codice2 and p.codicelaurea = codiceCdl;
+		
+	end;
+	$$language plpgsql;
+
+	--call "UniNostra".elliminaPropedeuticita('10','0','MD10');
+
 
 --Funzione per i docenti responsabili degli insegnamenti, permette di inserire un appello in una certa data per gli insegnamenti che detiene specifiacando il corso di laurea.
 --l'appello deve essere programmato almeno un giorno prima
@@ -664,7 +808,7 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$language plpgsql;
 	
-	--call "UniNostra".inserimentoAppello('6','4','gamma+lambda','bho','2023/09/18','13:10:00','15:15:00','FX101');
+	call "UniNostra".inserimentoAppello('14','24','gamma+lambda','bho','2023/09/19','13:10:00','15:15:00','MD101');
 	--call "UniNostra".inserimentoAppello('10','1','gamma','bho','2023/09/10','10:50:00','15:15:00','FX102');
 
 --Funzione che peremtte di aggiornare lo stato di una appello, uno studente si può iscrivere ad un appello solo se esso è aperto, ovvero fino a un ora prima dell'ora di inizio dell'esame. 
@@ -1114,7 +1258,6 @@ create table "UniNostra".PianoStudi(
 	end;
 	$$ LANGUAGE plpgsql;
 
-
 	CREATE OR REPLACE TRIGGER attivaDisattivaCdl BEFORE insert or delete  on "UniNostra".pianostudi  
 	FOR EACH ROW EXECUTE FUNCTION "UniNostra".attivaDisattivaCdl();
 
@@ -1435,9 +1578,10 @@ create table "UniNostra".PianoStudi(
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
 	values('4','47','25','Accettato',false);
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('4','50','30','Accettato',true);
+	values('1','50','30','Accettato',true);
+	select * from "UniNostra".iscrizioneesame i 
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('4','52','23','Accettato',false);
+	values('1','89','23','Accettato',false);
 
 	
 	call "UniNostra".registraLaurea('2','Laureato','108');
@@ -1463,12 +1607,19 @@ create table "UniNostra".PianoStudi(
 	select * from "UniNostra".pianostudi p 
 	select * from "UniNostra".propedeuticita p 
 	
-	
-	call "UniNostra".inserimentoAppello('10','1','bertone','bho','2023/09/13','10:00:00','13:00:00','FX101');
+	select * from "UniNostra".insegnamento i 
+	call "UniNostra".inserimentoAppello('19','24','bertone','bho','2023/09/13','10:00:00','13:00:00','FX101');
 	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
-	values('10','lambda','bho','2023/09/13','18:00:00','19:50:00','chiuso','FX101');
+	values('11','lambda','fisica1','2023/09/13','18:00:00','19:50:00','chiuso','MD101');
+	
+	--11 --12 --13 --32
+	insert into "UniNostra".appello (codiceinsegnamento,aula,note,dataesame,orainizio,orafine,statoappello,cdl)
+	values('32','settore didattico','fisica1','2023/05/17','18:00:00','19:50:00','chiuso','MD101');
 
 
+	select * from "UniNostra".appello a order by a.idappello 
+	--92-93-94-95
+	select * from "UniNostra".studente s 
 
 
 
@@ -1481,5 +1632,7 @@ create table "UniNostra".PianoStudi(
 	update "UniNostra".appello a set orainizio = '16:00:00', orafine = '18:00:00' where a.idappello = 14
 	
 	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
-	values('1','21','27','In attesa',false);
+	values('18','95','26','Accettato',false);
+	insert into "UniNostra".iscrizioneesame (matricola,id,votoesame,stato,islode)
+	values('13','91','18','In attesa',false);
 

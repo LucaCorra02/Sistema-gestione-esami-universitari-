@@ -12,7 +12,9 @@
 	LANGUAGE plpgsql
 	AS $$
 		begin
+			
 			RETURN QUERY
+				
 				select u.idutente , u.tipo 
 		    	FROM "UniNostra".utente u
 		    	where lower(u.email) = lower(emailNew) and u."password" = md5(passwordNew)::varchar(20);
@@ -48,7 +50,7 @@
 		 END;
 	 $$;
 
---select * from "UniNostra".profiloStudente('11');
+--select * from "UniNostra".profiloStudente('17');
 --Funzione che dato un id di uno studente, mostra gli appelli aperti per il suo cdl
 --Parametri : idUtente(integer)
 --Eccezioni : l'id inserito non appartiene ad uno studente o non esiste 
@@ -1269,6 +1271,35 @@ update "UniNostra".utente set "password" = md5('1234')::varchar(20) where iduten
 	 $$;
 	--select * from "UniNostra".insegnamentiDisponibili('')
 
+--Funzione che dato il codice di un corso di laurea ritorna se è attivo o meno 
+--Parametri : idCdl (varchar(10)
+--Eccezioni : il corso di laura inserito non esiste 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".cdlIsAttivo(
+	  idCdl varchar(10)
+	)
+	returns bool
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		idC varchar(10);
+		attivo bool;
+		begin 
+			select c.codice ,c.isattivo into idC, attivo from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if idC is null then 
+				raise exception 'il corso inserito %, non esiste',idCdl;
+			end if;
+			
+			if attivo = true then 
+				return true;
+			else 
+				return false;
+			end if;
+		END;
+	 $$;
+	--select * from "UniNostra".cdlIsAttivo('MD102')
+	
+	
 --Funzione che dato l'id di un insegnamento ne ritorna le sue informazioni 
 --Parametri : idInse (integer)
 --Eccezioni : l'insegnamento non esiste 
@@ -1365,13 +1396,718 @@ update "UniNostra".utente set "password" = md5('1234')::varchar(20) where iduten
 	call "UniNostra".inserisciInsegnamento('Fisica 3','fisica 3 difficile','9','24');
 	
 
+--Funzione che dato l'id di un insegnamento e il cdl di cui fa parte, restituisce tutti gli insegnamenti di quel corso per inserire le propedeuticità
+--Parametri : idCdl Varchar(10), idInsegnamento (integer)
+--Eccezioni : nessun corso con il codice specificato come parametro 
+--			  Nessun insegnamento con il codice specificato come parametro 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".propDisponibili(
+	  idCdl varchar(10), idIns integer
+	)
+	RETURNS table(
+		idInsegnamento integer,
+		nomeIns varchar(50),
+		annoErogazione annoEsame 
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+			perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if not found then 
+				raise exception 'nessun corso di laurea con id %',idCdl;
+			end if;
+		
+			perform * from "UniNostra".insegnamento i where i.codice = idIns;
+			if not found then 
+				raise exception 'Nessun insegnamento con id %',idIns;
+			end if;
+			
+			return QUERY
+				select i.codice , i.nome , p.annoerogazione 
+				from "UniNostra".pianostudi p inner join "UniNostra".insegnamento i on p.codiceinsegnamento = i.codice 
+				where p.codicecorso = idCdl and p.codiceinsegnamento <> idIns;
+		END;
+	 $$;
+	
+	--select * from "UniNostra".propDisponibili('MD101','10')
+	select * from "UniNostra".propedeuticita p 
+	
+
 	-- 4 -> 6 tolgo
 	-- 6 -> 10  tolgo
 	-- 4 -> 10
 	select * from "UniNostra".propedeuticita p where p.codicelaurea = 'FX101'
 	call "UniNostra".rimuoviPianoStudi('6','FX101');
 	
+select * from "UniNostra".corsodilaurea c where c.codice,c.nome,c.descrizione,c.durata 
+select * from "UniNostra".corsodilaurea c2 ;
+delete from "UniNostra".corsodilaurea c3 where c3.isattivo = false;
+
+--Funzione che dato l'id di un utente ( per verificare che sia un accesso autorizzato), ritorna tutti gli insegnamenti presenti.
+--Parametri : idUtente (integer)
+--Eccezioni : se l'utente inserito non è autorizzato 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaTuttiInsegnamenti(
+	  idU integer
+	)
+	RETURNS table(
+		idIns integer,
+		nomeIns varchar(50),
+		descrizione varchar(200),
+		cfu integer,
+		nomeDoc varchar(50),
+		cognomeDoc varchar(50)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+			perform * from "UniNostra".utente u where u.idutente = idU;
+			if not found then 
+				raise exception 'utente non autorizzato';
+			end if;
+			
+			return QUERY
+				select i.codice ,i.nome ,i.descrizione ,i.cfu, u.nome ,u.cognome 
+				from "UniNostra".insegnamento i  inner join "UniNostra".utente u  on i.iddocente = u.idutente 
+				order by i.codice ;
+		END;
+	 $$;
+	
+	--select * from "UniNostra".visualizzaTuttiInsegnamenti('122');
+
+--Funzione che dato l'id di un insegnamento ritorna i cdl di cui fa parte 
+--Parametri : idInsegnamento integer
+--Eccezioni : id non esistente
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".idCdlPerInsegnamento(
+	  idIns integer
+	)
+	RETURNS text
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		pianoStudiRiga "UniNostra".pianostudi%rowtype;
+		idCdl text;
+		begin 
+			perform * from "UniNostra".insegnamento i where i.codice = idIns;
+			if not found then 
+				raise exception 'nessun insegnamento con id %',idIns;
+			end if;
+			
+			for pianoStudiRiga in select * from "UniNostra".pianostudi p where p.codiceinsegnamento = idIns 
+				loop 
+					idCdl := concat(idCdl,' ',pianoStudiRiga.codicecorso); 
+				end loop;
+			return idCdl;
+		END;
+	 $$;
+	
+	--select * from "UniNostra".idCdlPerInsegnamento('101');
+	
+--Funzione che dato l'id di un cdl ritorna tutti gli studenti iscritti 
+--Parametri : idCdl 
+--Eccezioni : non esiste nessun corso di laurea con il codice inserito 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaStudentiCdl(
+	  idCdl varchar(10)
+	)
+	RETURNS table(
+		matricola integer,
+		nome varchar(50),
+		cognome varchar(100),
+		telefono varchar(20),
+		datanascita date,
+		indirizzo varchar(100),
+		iscrizione date,
+		incorso bool
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+			
+			perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if not found then 
+				raise exception 'Nessun cdl con codice %',idCdl;
+			end if;
+			
+			return QUERY
+				select s.matricola,u.nome ,u.cognome ,s.telefono ,s.datanascita,s.indirizzoresidenza ,s.annoiscrizione,s.incorso 
+				from "UniNostra".studente s inner join "UniNostra".utente u on u.idutente = s.idutente
+				where s.idcorso = idCdl;
+		END;
+	 $$;
+	--select * from "UniNostra".visualizzaStudentiCdl('FX102');
+	
+	
+--Funzione che data la matricola di uno studente ritorna le sue informazioni 
+--Parametri : matricola studente 
+--Eccezioni : la matricola inserita non esisre
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".visualizzaInfoDisiscrizione(
+	  mat integer
+	)
+	RETURNS table(
+		matricola integer,
+		nome varchar(50),
+		cognome varchar(100),
+		email varchar(50),
+		cfu varchar(16),
+		telefono varchar(20),
+		indirizzo varchar(100),
+		datanascita date,
+		idCorso varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		begin 
+			
+			perform * from "UniNostra".studente s where s.matricola = mat;
+			if not found then 
+				raise exception 'nessun studente con matricola %',mat;
+			end if;
+			
+			return QUERY
+				select s.matricola,u.nome ,u.cognome,u.email ,u.cf ,s.telefono,s.indirizzoresidenza,s.datanascita,s.idcorso 
+				from "UniNostra".studente s inner join "UniNostra".utente u on u.idutente = s.idutente
+				where s.matricola = mat;
+		END;
+	 $$;
+	
+	--select * from "UniNostra".visualizzaInfoDisiscrizione('10')
+	
+--Funzione che dato l'id di una matricola restituisce l'id utente associato
+--Parametri : matricola (integer)
+--Eccezioni : la matricola inserita non esiste
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".idAssociatoMatricola(
+	  mat integer
+	)
+	RETURNS integer 
+	LANGUAGE plpgsql
+	AS $$
+	declare 
+		idU integer;
+		begin 
+			
+			perform * from "UniNostra".studente s where s.matricola = mat;
+			if not found then 
+				raise exception 'nessun studente con matricola %',mat;
+			end if;
+			
+			select s.idutente into idU from "UniNostra".studente s where s.matricola = mat;
+			return idU;
+		END;
+	 $$;
+	
+	select * from "UniNostra".idAssociatoMatricola('1');
+	
+--Funzione che resituisce tutti gli appelli dato l'id di un utente
+--Parametri : idUtente integer
+--Eccezioni : utente non autorizzato 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".appelliDatoUtente(
+	  idU integer
+	)
+	RETURNS TABLE(
+		idappello integer,
+		codiceinsegnamento integer,
+		nomeIns varchar(50),
+		cfu integer,
+		nome varchar(50),
+		cognome varchar(100),
+		dataesame date,
+		orainizio time,
+		orafine time,
+		aula varchar(20),
+		cdl varchar(10),
+		statoappello tipostatoAppello
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin 
+			perform * from "UniNostra".utente u where u.idutente = idU;
+			if not found then 
+				raise exception 'nessun utente con id %',idU;
+			end if;
+			
+			return QUERY
+				select a.idappello ,a.codiceinsegnamento,i.nome ,i.cfu ,u.nome ,u.cognome ,a.dataesame  ,a.orainizio ,a.orafine ,a.aula ,a.cdl ,a.statoappello 
+				from "UniNostra".appello a inner join "UniNostra".insegnamento i on a.codiceinsegnamento = i.codice inner join "UniNostra".utente u on u.idutente = i.iddocente 
+				order by a.cdl, a.codiceinsegnamento,a.dataesame desc  ;
+		END;
+	 $$;
+		
+	select * from "UniNostra".appelliDatoUtente('1')
+
+--Funzione che dato la matricola e l'appello di un esame a cui ha partecipato ritorna le sue informazioni 
+--Parametri : matricola intger, idAppello integer 
+--Eccezioni : la matricola non ha partecipato all'appello inserito 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".esitoStud(
+	 	mat integer,idApp integer
+	)
+	RETURNS TABLE(
+		
+		nome varchar(50),
+		cognome varchar(100),
+		matricola integer,
+		nomeIns varchar(50),
+		cfu integer,
+		cdl varchar(10),
+		votoEsame "UniNostra".voto
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare
+		esito "UniNostra".iscrizioneesame%rowtype;
+		begin 
+			
+			select * into esito from "UniNostra".iscrizioneesame i where i.matricola = mat and i.id = idApp;
+			if esito.matricola is null then 
+				raise exception 'lo studente con matricola % non è iscritto all^appello %',mat,idApp;
+			end if;
+			
+			return QUERY
+				select u.nome ,u.cognome ,i.matricola ,i2.nome , i2.cfu , a.cdl, i.votoesame 
+				from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento inner join "UniNostra".studente s on s.matricola = i.matricola inner join "UniNostra".utente u on u.idutente = s.idutente
+				where i.matricola = mat and i.id = idApp;
+		END;
+	 $$;
+		
+	--select * from "UniNostra".esitoStud('1','23')
+	
+--Procedura che data la matricola e l'id ad un appello a cui è iscritta permette di cambiare il voto 
+--Parametri : matricola (integer), idAppello (integer), votoEsame ("UniNostra".voto)
+--Eccezioni : matricola non iscritta all'appello 
+--			  matricola iscritta ma con stato != Accettato
+--            voto < 18
+	
+	CREATE OR REPLACE procedure  "UniNostra".cambiavotoaccettato(
+	 	mat integer,idApp integer,votoE "UniNostra".voto, lode bool
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare
+		esito "UniNostra".iscrizioneesame%rowtype;
+		begin 
+			
+			select * into esito from "UniNostra".iscrizioneesame i where i.matricola = mat and i.id = idApp;
+			if esito.matricola is null then 
+				raise exception 'lo studente con matricola % non è iscritto all^appello %',mat,idApp;
+			end if;
+			
+			if esito.stato != 'Accettato' then 
+				raise exception 'stato non valido';
+			end if;
+		
+			if votoE < 18 then 
+				raise exception 'voto non valido';
+			end if;
+		
+			update "UniNostra".iscrizioneesame i 
+			set votoesame = votoE , islode = lode
+			where i.matricola = mat and i.id = idApp;
+		END;
+	 $$;
+	
+
+--funzione che ritorna gli studenti che si possono laureare 
+--Parametri : idUtente 
+--Eccezioni : utente non autorizzato 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".studentiprontilaurea(
+	 	idCdl varchar(10)
+	)
+	RETURNS TABLE(
+		matricola integer,
+		nome varchar(50),
+		cognome varchar(100),
+		indrizzo varchar(100),
+		dataNascita date,
+		annoiscrizione date,
+		inCorso bool,
+		nomeCorso varchar(50),
+		idCors varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare
+		begin 
+			perform * from "UniNostra".corsodilaurea c where c.codice = idCdl;
+			if not found then 
+				raise exception 'nessun cdl con id %',idCdl;
+			end if;
+		
+			return QUERY
+				select s.matricola ,u.nome , u.cognome ,s.indirizzoresidenza , s.datanascita , s.annoiscrizione , s.incorso, c.nome ,s.idcorso 
+				from "UniNostra".studente s inner join "UniNostra".utente u on s.idutente = u.idutente inner join "UniNostra".corsodilaurea c on c.codice = s.idcorso 
+				where s.idcorso = idCdl and not exists ( 
+					select * 
+					from "UniNostra".pianostudi p 
+					where p.codicecorso = s.idcorso and not exists (
+						select * 
+						from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on a.idappello = i.id 
+						where i.matricola = s.matricola and a.codiceinsegnamento = p.codiceinsegnamento and a.cdl = s.idcorso and i.stato = 'Accettato'
+					)
+				);				
+		END;
+	 $$;
+	
+	select * from "UniNostra".studentiprontilaurea('MD101');
+	
+--Funzione che data la matricola di uno studente ritorna la sua media
+--parametri : matricola (integer)
+--Eccezioni : studente non esistente
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".mediaStudente(
+	 	mat integer
+	)
+	RETURNS integer
+	LANGUAGE plpgsql
+	AS $$
+	declare
+		stud "UniNostra".studente%rowtype;
+		votoE "UniNostra".voto;
+		cf integer;
+		num integer;
+		media integer; 
+	
+		begin 
+			select * into stud from "UniNostra".studente s where s.matricola = mat ;
+			if stud.matricola is null then 
+				raise exception 'nessun studente con id %',mat;
+			end if;
+		
+			media := 0;
+			num := 0;
+			for votoE,cf in select i.votoesame, i2.cfu from "UniNostra".iscrizioneesame i inner join "UniNostra".appello a on i.id = a.idappello inner join "UniNostra".insegnamento i2 on i2.codice = a.codiceinsegnamento  where i.matricola = mat and a.cdl = stud.idcorso and i.stato = 'Accettato'
+				loop 
+					media := media + (votoE * cf);
+					num := num + cf;
+				end loop;
+				
+			if num = 0 then 
+				return 0;
+			end if;
+			media := media / num;
+			return media;
+		END;
+	 $$;
+
+	select * from "UniNostra".mediaStudente('17');
+
+--Funzione che ritorna tutti gli ex-studenti
+--Parametri : idSegretario (integer)
+--Eccezioni : utente non autorizzato 
+
+	CREATE OR REPLACE FUNCTION "UniNostra".tuttigliexstudenti(
+	 	idU integer
+	)
+	RETURNS TABLE(
+		matricola integer,
+		nome varchar(50),
+		cognome varchar(100),
+		telefono varchar(20),
+		indririzzo varchar(100),
+		datanascita date,
+		annoiscrizione date,
+		annorimozione date,
+		incorso bool,
+		stato tipoSatoExStudente,
+		votol "UniNostra".votolaurea,
+		idcdl varchar(10),
+		nomeins varchar(50)
+	)
+	LANGUAGE plpgsql
+	AS $$
+	declare
+		begin 
+			
+			perform * from "UniNostra".segretario u where u.idutente  = idU;
+			if not found then 
+				raise exception 'utente non autorizzato';
+			end if;
+			
+			return query 
+				select e.matricola ,e.nome ,e.cognome, e.telefono ,e.indirizzoresidenza ,e.datanascita ,e.annoiscrizione ,e.datarimozione,e.incorso ,e.stato,e."votolaurea" ,e.codicecorso ,c.nome  
+				from "UniNostra".exstudente e inner join "UniNostra".corsodilaurea c on c.codice = e.codicecorso
+				order by e.codicecorso , e.stato ,e.datarimozione asc;
+		END;
+	 $$;
+
+	--select * from "UniNostra".tuttigliexstudenti('13');
+
+--Funzione che dato l'id di un segretario, restituisce tutti i docenti presenti nel database 
+--Parametri : idSegretario (integer)
+--Eccezioni : utente non autorizzato 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".tuttiidocenti(
+	 	idU integer
+	)
+	RETURNS TABLE(
+		idUtente integer,
+		nome varchar(50),
+		cognome varchar(100),
+		indirizzoufficio varchar(100),
+		cellulareinterno varchar(20)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin 
+				
+			perform * from "UniNostra".segretario s where s.idutente = idU;
+			if not found then 
+				raise exception 'utente non autorizzato';
+			end if;
+
+			return QUERY 
+				select u.idutente, u.nome , u.cognome , d.indirizzoufficio , d.cellulareinterno 
+				from "UniNostra".docente d inner join "UniNostra".utente u on d.idutente = u.idutente;
+		END;
+	 $$;
+	
+	select * from "UniNostra".tuttiidocenti('13');
+	
+--Funzione che dato l'id di un docente ritorna il numero di exdocenze
+--Parametri : idDocente (integer)
+--Eccezioni : l'id inserito non appartiene ad un docente 	
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".numexdocenze(
+	 	idDoc integer
+	)
+	returns bigint
+	LANGUAGE plpgsql
+	AS $$
+		declare 
+			num bigint;
+		begin 
+
+			perform * from "UniNostra".docente d where d.idutente = idDoc;
+			if not found then 
+				raise exception 'id non di un docente';
+			end if;
+
+			num:=0;
+			select count(e.iddocente)  into num
+			from "UniNostra".docente d inner join "UniNostra".exinsegnamento e on e.iddocente = d.idutente 
+			where d.idutente = idDoc;
+			
+			return num;
+		END;
+	 $$;
+	select * from "UniNostra".exinsegnamento e 
+	
+	--select * from "UniNostra".numexdocenze('47')
+	--1 --24 --4
+
+--Procedura che permette di aggiornare le informazioni di un docente 
+--Parametri: idDocente (integer), indirizzo varchar(100), cellulare varchar(10)
+--Eccezioni : non esiste nessun docente con id inserito 
+
+	CREATE OR replace procedure "UniNostra".updateinfodocente(
+	 	idDoc integer, indirizzo varchar(100), cellulare varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		declare 
+			doc "UniNostra".docente%rowtype;
+		begin 
+
+			select * into doc from "UniNostra".docente d where d.idutente = idDoc ;
+			if doc.idutente is null then 
+				raise exception 'id non di un docente';
+			end if;
+
+			if doc.cellulareinterno = cellulare then 
+				cellulare := doc.cellulareinterno;
+			end if;
+			
+			if doc.indirizzoufficio = indirizzo then 
+				indirizzo := doc.indirizzoufficio;
+			end if;
+			
+			update "UniNostra".docente d set cellulareinterno = cellulare, indirizzoufficio = indirizzo where d.idutente = idDoc;
+		END;
+	 $$;
+	
+	call "UniNostra".updateinfodocente('1','sos','393020220')
+	select * from "UniNostra".docente d 
+	
+--Funzione che dato l'id di un segretario, ritorna tutti i segretari presenti nella base di dati 
+--Parametri : idSegretario (integer)
+--Eccezioni : Utente non autorizzato, l'id inserito non è di un segretario. 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".tuttiisegretari(
+	 	idSegretario integer
+	)
+	RETURNS TABLE(
+		idS integer,
+		nome varchar(50),
+		cognome varchar(100),
+		email varchar(50),
+		indirizzo varchar(100),
+		nomedip varchar(50),
+		cellulare varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin 
+				
+			perform * from "UniNostra".segretario s where s.idutente = idSegretario;
+			if not found then 
+				raise exception 'Utente non autorizzato';
+			end if;
+
+			return QUERY 
+				select u.idutente ,u.nome ,u.cognome ,u.email ,s.indirizzosegreteria ,s.nomedipartimento ,s.cellulareinterno
+				from "UniNostra".segretario s inner join "UniNostra".utente u on s.idutente = u.idutente ;
+		END;
+	 $$;
+	
+	select * from "UniNostra".tuttiisegretari('13');
+	
+--Procedura che permette di aggiornare le informazioni di un segretario
+--Parametri: idSegreatario (integer), nome diartimento varchar(50) ,indirizzo varchar(100), cellulare varchar(10)
+--Eccezioni : non esiste nessun docente con id inserito 
+
+	CREATE OR replace procedure "UniNostra".updateinfosegretario(
+	 	idS integer, nomeDip varchar(50) , indirizzo varchar(100), cellulare varchar(10)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		declare 
+			seg "UniNostra".segretario%rowtype;
+		begin 
+
+			select * into seg from "UniNostra".segretario s where s.idutente = idS;
+			if seg.idutente is null then 
+				raise exception 'nessun segretario con id %',idS;
+			end if;
+
+			if seg.indirizzosegreteria = indirizzo then 
+				indirizzo := seg.indirizzosegreteria ;
+			end if;
+			
+			if seg.nomedipartimento = nomeDip then 
+				nomeDip := seg.nomedipartimento;
+			end if;
+			
+			if seg.cellulareinterno = cellulare then 
+				cellulare := seg.cellulareinterno;
+			end if;
+			
+			update "UniNostra".segretario s set nomedipartimento = nomeDip, indirizzosegreteria = indirizzo, cellulareinterno = cellulare where s.idutente = idS; 
+		END;
+	 $$;
+	
+	
+--Funzione che permette di visualizzare tutti gli utenti tranne i segretari 
+--Parametri : idSegretario 
+--Utente non autorizzato 
+	
+	CREATE OR REPLACE FUNCTION "UniNostra".tuttigliutenti(
+	 	idSegretario integer
+	)
+	RETURNS TABLE(
+		idS integer,
+		nome varchar(50),
+		cognome varchar(100),
+		cf varchar(16),
+		email varchar(50),
+		psw varchar(32),
+		tipo tipoUtente
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin 
+				
+			perform * from "UniNostra".segretario s where s.idutente = idSegretario;
+			if not found then 
+				raise exception 'Utente non autorizzato';
+			end if;
+
+			return QUERY 
+				select u.idutente ,u.nome , u.cognome ,u.cf ,u.email ,u."password" , u.tipo 
+				from "UniNostra".utente u 
+				where u.tipo <> 'Segretario';
+		END;
+	 $$;
+	
+	select * from  "UniNostra".tuttigliutenti('13');
+
+--funzione che dato l'id di un utente ritorna alcune sue informazioni 
+--Parametri : idUtente 
+--Eccezioni : utente inesistente
+
+	CREATE OR REPLACE FUNCTION "UniNostra".infoutente(
+	 	idU integer
+	)
+	RETURNS TABLE(
+		nome varchar(50),
+		cognome varchar(100),
+		email varchar(50)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin 
+				
+			perform * from "UniNostra".utente u where u.idutente = idU;
+			if not found then 
+				raise exception 'Utente inesistente';
+			end if;
+
+			return QUERY 
+				select u.nome ,u.cognome ,u.email  
+				from "UniNostra".utente u
+				where u.idutente = idU;
+		END;
+	 $$;
+	
 
 	
 	
+--Procedura che dato l'id di un utente e la nuova password modifica le sue credenziali d'accesso
+--Parametri : idSegretario (integer), idUtente(integer), nuovaPsw varchar(32)
+--Eccezioni : utente non autorizzato 
+--			  utente non esistente 
+--            l'utente a cui si vuole cambiare password è un segretario
+
+	CREATE OR REPLACE procedure "UniNostra".recuperopsw(
+	 	idSegretario integer, idU integer, nuovaPsw varchar(20)
+	)
+	LANGUAGE plpgsql
+	AS $$
+		begin 
+				
+			perform * from "UniNostra".segretario s where s.idutente = idSegretario;
+			if not found then 
+				raise exception 'accesso non autorizzato';
+			end if;
 		
+			perform * from "UniNostra".utente u where u.idutente = idU;
+			if not found then 
+				raise exception 'utente non esistente';
+			end if;
+		
+			perform * from "UniNostra".segretario s where s.idutente = idU;
+			if found then 
+				raise exception 'l^utente è un segretario';
+			end if;
+
+			update "UniNostra".utente u set "password" = md5(nuovaPsw)::varchar(20) where u.idutente = idU;
+		END;
+	 $$;
+
+	select * from "UniNostra".utente u 
+	
+	
+	
+	
+	
+	
+	
+	
