@@ -2104,7 +2104,7 @@ delete from "UniNostra".corsodilaurea c3 where c3.isattivo = false;
 
 	select * from "UniNostra".utente u 
 	
-	
+	select * from "UniNostra".utente u 
 	
 	
 	

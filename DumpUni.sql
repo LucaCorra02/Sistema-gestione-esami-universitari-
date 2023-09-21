@@ -1561,13 +1561,6 @@ create or replace procedure "UniNostra".elliminaPropedeuticita (
 	CREATE OR REPLACE TRIGGER storicoStud before delete on "UniNostra".studente 
 	FOR EACH ROW EXECUTE function "UniNostra".storicoStudente();
 
-	--drop trigger storicoStud on "UniNostra".studente 
-
-	---RIATTIVARE TRIGGER ISCRIZIONI APPELLI
-	---RISCRIVERE AD UN ALTRO CORSO DI LAUREA
-	---DISTINGURE IN ACCESSO TRA STUDENTE E EXSTUDENTE
-
-	--drop trigger storicoStud on "UniNostra".studente 
 
 	select * from "UniNostra".pianostudi p where p.codicecorso= 'FX102';
 	'6' '10' '4'
