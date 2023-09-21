@@ -16,8 +16,8 @@
       if (! (isset($_SESSION["idUtente"]))){
         redirect("../login.php");
       }
-      if(!isset( $_SESSION["modificadocente"])){
-        redirect("visualizzadocenti.php");
+      if(!isset( $_SESSION["nuovapsw"])){
+        redirect("recuperopsw.php");
       }
 
     ?>
@@ -70,72 +70,73 @@
         if (isset($_SESSION["ok"])){
             unset($_SESSION["ok"]);
             echo '<script type="text/javascript">ok();</script>';
-            header("refresh:2;url=visualizzadocenti.php");
+            header("refresh:2;url=recuperopsw.php");
         }
 
-        if(isset($_POST["indirizzo"])){
-            $indirizzo = $_POST["indirizzo"];
-            $cellulare = $_POST["cellulare"];
+        
+        if(isset($_POST["psw"])){
+            $psw = $_POST["psw"];
+            $confermapsw = $_POST["confermapsw"];
 
-            if (trim($indirizzo) == ""){
-                $_SESSION["error"] = "indirizzo non valido";
-                @redirect("modificadocente.php");
+            if (trim($psw) == "" || strlen($psw)< 4 ){
+                $_SESSION["error"] = "Password non valida";
+                @redirect("nuovapsw.php");
             }else{
-                if (trim($cellulare) == "" or strlen($cellulare) > 10){
-                    $_SESSION["error"] = "cellulare non valido";
-                    @redirect("modificadocente.php");
+                if (trim($psw) != trim($confermapsw)){
+                    $_SESSION["error"] = "Le password non combaciano";
+                    @redirect("nuovapsw.php");
                 }
             }
+
             if(!isset($_SESSION["error"])){
-               
                 $dbConnect = openConnection();
-                $query = "call ".UniNostra.".updateinfodocente($1,$2,$3)";
+                $query = "call ".UniNostra.".recuperopsw($1,$2,$3)";
                 $res = pg_prepare($dbConnect, "", $query);
-                $row = @pg_execute($dbConnect, "", array($_SESSION["modificadocente"],$indirizzo,$cellulare));
+                $row = @pg_execute($dbConnect, "", array($_SESSION["idUtente"],$_SESSION["nuovapsw"],$psw));
 
                 if(!$row){
                     $_SESSION["error"] = parseError(pg_last_error());
                 }else{
-                    $_SESSION["ok"] = "Modifiche effettuate!";
+                    $_SESSION["ok"] = "Password modificata!";
                 }
-                @redirect("modificadocente.php");
-
+                @redirect("nuovapsw.php");
             }
         }
+
         $dbConnect = openConnection();
-        $query = "select * from ".UniNostra.".profiloDocente($1)";
+        $query = "select * from ".UniNostra.".infoutente($1)";
         $res = pg_prepare($dbConnect, "", $query);
-        $row = pg_fetch_assoc(pg_execute($dbConnect, "", array($_SESSION["modificadocente"])));
-        endConnection($dbConnect);
+        $row = pg_fetch_assoc(@pg_execute($dbConnect, "", array($_SESSION["nuovapsw"])));
+
     ?>
     
     <div class="centroForm" id = "elliminaForm">
-        <form action="modificadocente.php" method="post">
+        <form action="nuovapsw.php" method="post">
             <div class="row mb-4">
                 <div class="col">
                     <div class="form-outline">
-                        <label class="form-label" for="id">Id utente: </label>
-                        <input type="text" id="id" class="form-control" name="id" value="<?php echo $_SESSION["modificadocente"];?>" readonly/>
+                        <label class="form-label" for="nome">Nome: </label>
+                        <input type="text" id="nome" class="form-control" name="nome" readonly value = "<?php echo $row['nome'].' '.$row['cognome']; ?>"/>
                     </div>
                 </div>
                 <div class="col">
                     <div class="form-outline">
-                        <label class="form-label" for="nome">Nome: </label>
-                        <input type="text" id="nome" class="form-control" name="nome" value="<?php echo $row['nome'].' '.$row['cognome'];?>" readonly/>
+                        <label class="form-label" for="email">Email: </label>
+                        <input type="text" id="email" class="form-control" name="email" readonly value = "<?php echo $row['email']; ?>" />
                     </div>
                 </div>
             </div>
             <div class="row mb-4">
                 <div class="col">
                     <div class="form-outline">
-                        <label class="form-label" for="indrizzo">Indirizzo Ufficio: </label>
-                        <input type="text" id="indrizzo" class="form-control" name="indirizzo" value="<?php echo $row["indufficio"];?>" required/>
+                        <label class="form-label" for="psw">Nuova Password (almeno 4 caratteri): </label>
+                        <input type="password" id="psw" class="form-control" name="psw" required/>
                     </div>
                 </div>
                 <div class="col">
                     <div class="form-outline">
-                        <label class="form-label" for="cellulare">Cellulare: </label>
-                        <input type="text" id="cellulare" class="form-control" name="cellulare" value="<?php echo $row["telefono"];?>" required />
+                        <label class="form-label" for="confermapsw">Conferma: </label>
+                        <input type="password" id="confermapsw" class="form-control" name="confermapsw" required/>
                     </div>
                 </div>
             </div>
@@ -145,11 +146,11 @@
         </form>
     </div>
     <div class="centroForm" style="margin-top:10px;" id="indietro">
-        <h5 style="display:inline;">Torna a visualizza docenti: </h5><button class ="btn btn-primary btn-sm" onclick="indietro();">Indietro</button>
+        <h5 style="display:inline;">Torna a visualizza utenti: </h5><button class ="btn btn-primary btn-sm" onclick="indietro();">Indietro</button>
     </div>
     <script>
         function indietro(){
-            location.href = "http://127.0.0.1/Progetto/Segreteria/visualizzadocenti.php";
+            location.href = "http://127.0.0.1/Progetto/Segreteria/recuperopsw.php";
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>

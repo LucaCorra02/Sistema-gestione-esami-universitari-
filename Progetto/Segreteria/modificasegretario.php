@@ -16,8 +16,8 @@
       if (! (isset($_SESSION["idUtente"]))){
         redirect("../login.php");
       }
-      if(!isset( $_SESSION["modificadocente"])){
-        redirect("visualizzadocenti.php");
+      if(!isset( $_SESSION["modificasegretario"])){
+        redirect("visualizzasegretari.php");
       }
 
     ?>
@@ -70,52 +70,60 @@
         if (isset($_SESSION["ok"])){
             unset($_SESSION["ok"]);
             echo '<script type="text/javascript">ok();</script>';
-            header("refresh:2;url=visualizzadocenti.php");
+            header("refresh:2;url=visualizzasegretari.php");
         }
 
-        if(isset($_POST["indirizzo"])){
+        if(isset($_POST["nomedip"])){
+            $nome = $_POST["nomedip"];
             $indirizzo = $_POST["indirizzo"];
             $cellulare = $_POST["cellulare"];
-
-            if (trim($indirizzo) == ""){
-                $_SESSION["error"] = "indirizzo non valido";
-                @redirect("modificadocente.php");
+            
+            if (trim($nome) == ""){
+                $_SESSION["error"] = "nome dipartimento non valido";
+                @redirect("modificasegretario.php");
             }else{
-                if (trim($cellulare) == "" or strlen($cellulare) > 10){
-                    $_SESSION["error"] = "cellulare non valido";
-                    @redirect("modificadocente.php");
-                }
+                if (trim($indirizzo) == ""){
+                    $_SESSION["error"] = "indirizzo non valido";
+                    @redirect("modificasegretario.php");
+                }else{
+                    if (trim($cellulare) == "" or strlen($cellulare) > 10){
+                        $_SESSION["error"] = "cellulare non valido";
+                        @redirect("modificasegretario.php");
+                    }
+                }    
             }
+
             if(!isset($_SESSION["error"])){
                
                 $dbConnect = openConnection();
-                $query = "call ".UniNostra.".updateinfodocente($1,$2,$3)";
+                $query = "call ".UniNostra.".updateinfosegretario($1,$2,$3,$4)";
                 $res = pg_prepare($dbConnect, "", $query);
-                $row = @pg_execute($dbConnect, "", array($_SESSION["modificadocente"],$indirizzo,$cellulare));
+                $row = @pg_execute($dbConnect, "", array($_SESSION["modificasegretario"],$nome,$indirizzo,$cellulare));
 
                 if(!$row){
                     $_SESSION["error"] = parseError(pg_last_error());
                 }else{
                     $_SESSION["ok"] = "Modifiche effettuate!";
                 }
-                @redirect("modificadocente.php");
+                @redirect("modificasegretario.php");
 
             }
         }
+        
         $dbConnect = openConnection();
-        $query = "select * from ".UniNostra.".profiloDocente($1)";
+        $query = "select * from ".UniNostra.".profiloSegretario($1)";
         $res = pg_prepare($dbConnect, "", $query);
-        $row = pg_fetch_assoc(pg_execute($dbConnect, "", array($_SESSION["modificadocente"])));
+        $row = pg_fetch_assoc(pg_execute($dbConnect, "", array($_SESSION["modificasegretario"])));
         endConnection($dbConnect);
     ?>
     
     <div class="centroForm" id = "elliminaForm">
-        <form action="modificadocente.php" method="post">
+        <form action="modificasegretario.php" method="post">
             <div class="row mb-4">
                 <div class="col">
                     <div class="form-outline">
                         <label class="form-label" for="id">Id utente: </label>
-                        <input type="text" id="id" class="form-control" name="id" value="<?php echo $_SESSION["modificadocente"];?>" readonly/>
+                        <input type="text" id="id" class="form-control" name="id" value="<?php echo $_SESSION["modificasegretario"];?>" readonly/>
                     </div>
                 </div>
                 <div class="col">
@@ -128,14 +136,28 @@
             <div class="row mb-4">
                 <div class="col">
                     <div class="form-outline">
+                        <label class="form-label" for="cf">Codice fiscale: </label>
+                        <input type="text" id="cf" class="form-control" name="cf" value="<?php echo $row["cf"];?>" readonly/>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-outline">
+                        <label class="form-label" for="nomedip">Nome Dipartimento: </label>
+                        <input type="text" id="nomedip" class="form-control" name="nomedip" value="<?php echo $row["nomedip"];?>" required/>
+                    </div>
+                </div>
+            </div>
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="form-outline">
                         <label class="form-label" for="indrizzo">Indirizzo Ufficio: </label>
-                        <input type="text" id="indrizzo" class="form-control" name="indirizzo" value="<?php echo $row["indufficio"];?>" required/>
+                        <input type="text" id="indrizzo" class="form-control" name="indirizzo" value="<?php echo $row["indirizzo"];?>" required/>
                     </div>
                 </div>
                 <div class="col">
                     <div class="form-outline">
                         <label class="form-label" for="cellulare">Cellulare: </label>
-                        <input type="text" id="cellulare" class="form-control" name="cellulare" value="<?php echo $row["telefono"];?>" required />
+                        <input type="text" maxlength ="10" id="cellulare" class="form-control" name="cellulare" value="<?php echo $row["cellulareinterno"];?>" required />
                     </div>
                 </div>
             </div>
@@ -145,11 +167,11 @@
         </form>
     </div>
     <div class="centroForm" style="margin-top:10px;" id="indietro">
-        <h5 style="display:inline;">Torna a visualizza docenti: </h5><button class ="btn btn-primary btn-sm" onclick="indietro();">Indietro</button>
+        <h5 style="display:inline;">Torna a visualizza segretari: </h5><button class ="btn btn-primary btn-sm" onclick="indietro();">Indietro</button>
     </div>
     <script>
         function indietro(){
-            location.href = "http://127.0.0.1/Progetto/Segreteria/visualizzadocenti.php";
+            location.href = "http://127.0.0.1/Progetto/Segreteria/visualizzasegretari.php";
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>

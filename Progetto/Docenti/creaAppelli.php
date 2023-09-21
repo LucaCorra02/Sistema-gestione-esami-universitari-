@@ -124,7 +124,7 @@
             </div>";
         }else{     
     ?>
-    <div class="centroForm">
+    <div class="centroForm" style="margin-bottom:190px;">
         <form action="creaAppelli.php" method="post">
             <div class="row mb-4">
                 <div class="col">

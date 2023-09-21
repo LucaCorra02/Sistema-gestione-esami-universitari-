@@ -155,7 +155,7 @@
       </table>
     </div>
     <?php 
-      //require("../footer.php");
+      require("../footer.php");
     ?>
     <script>
         $('#selezioneCdl').on('change', function () {

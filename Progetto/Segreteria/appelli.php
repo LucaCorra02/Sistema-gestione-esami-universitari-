@@ -44,12 +44,16 @@
             <tbody class="ricerca">
                 <?php   
                     $cont = 1;
-                    $queryNum = "select * from ".UniNostra.".numPartecipantiApp($1)";  
+                    $queryNum = "select * from ".UniNostra.".numPartecipantiApp($1)";
+                    $queryNumStorico = "select * from ".UniNostra.".numPartecipantiStorico($1)";  
                     while ($res = pg_fetch_row($row)) {        
                         $res3 = pg_prepare($connesione, "", $queryNum);
                         $num = pg_fetch_assoc(pg_execute($connesione, "", array($res[0])));
 
-                        $totale = $num["num"];
+                        $res4 = pg_prepare($connesione, "", $queryNumStorico);
+                        $numStorico = pg_fetch_assoc(pg_execute($connesione, "", array($res[0])));
+
+                        $totale = $num["num"] + $numStorico["num"];
                         $res[6] = parseData($res[6]);
                         array_push($res,$totale);
                         $btn = "<form method='post' action='appelli.php'><button type='submit' id = '".$res[0]."' class='btn btn-primary' name='iscrizioni' value='".$res[0]."'>Iscrizioni</button></form>";

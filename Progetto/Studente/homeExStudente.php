@@ -48,6 +48,7 @@
     <script src="https://kit.fontawesome.com/3bda55893c.js" crossorigin="anonymous"></script>
     <?php 
       require("../footer.php");
+      spazioFooter();
     ?>
   </body>
 </html>

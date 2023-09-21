@@ -72,6 +72,9 @@
             </div>";
           }
         require("../footer.php");
+        if($cont < 4){
+          spazioFooter();
+        }
     ?>
      <script>
       $(document).ready(function () {

@@ -17,8 +17,8 @@
       if (! (isset($_SESSION["idUtente"]))){
         redirect("../login.php");
       }
-      if(!(isset($_SESSION["adddoc"]))){
-        redirect("visualizzadocenti.php");
+      if(!(isset($_SESSION["addseg"]))){
+        redirect("visualizzasegretari.php");
       }
     ?>
 
@@ -68,7 +68,7 @@
         if (isset($_SESSION["ok"])){
             unset($_SESSION["ok"]);
             echo '<script type="text/javascript">ok();</script>';
-            header("refresh:2;url=visualizzadocenti.php");
+            header("refresh:2;url=visualizzasegretari.php");
         }
 
         if (isset($_POST["email"])){
@@ -80,42 +80,48 @@
             $confpsw = $_POST["confpsw"];
             $telefono = strval($_POST["telefono"]);
             $residenza = $_POST["residenza"];
+            $nomedip = $_POST["nomedip"];
 
             
-            $_SESSION["arr"] = array($nome,$cognome,$email,$cfu,$psw,$confpsw,$telefono,$residenza);
+            $_SESSION["arr"] = array($nome,$cognome,$email,$cfu,$psw,$confpsw,$telefono,$residenza,$nomedip);
 
             if (trim($nome)==""){
                 $_SESSION["error"] = "nome non valido";
-                @redirect("aggiungidocente.php");
+                @redirect("aggiungisegretario.php");
             }else{
                 if(trim($cognome)==""){
                     $_SESSION["error"] = "cognome non valido";
-                    @redirect("aggiungidocente.php");
+                    @redirect("aggiungisegretario.php");
                 }else{
                     if(trim($email)=="" || !str_contains($email,'.')){
                         $_SESSION["error"] = "email non valida";
-                        @redirect("aggiungidocente.php");
+                        @redirect("aggiungisegretario.php");
                     }else{
-                        $email = $email."@docenti.UniNostra";
+                        $email = $email."@segreteria.UniNostra";
                         if(trim($cfu)==""){
                             $_SESSION["error"] = "codice fiscale non valido";
-                            @redirect("aggiungidocente.php");
+                            @redirect("aggiungisegretario.php");
                         }else{
                             if(trim($psw) == "" || strlen($psw) < 4){
                                 $_SESSION["error"] = "password non valida";
-                                @redirect("aggiungidocente.php");
+                                @redirect("aggiungisegretario.php");
                             }else{
                                 if($psw != $confpsw){
                                     $_SESSION["error"] = "le password non combaciano";
-                                    @redirect("aggiungidocente.php");
+                                    @redirect("aggiungisegretario.php");
                                 }else{
                                     if(trim($telefono) == ""){
                                         $_SESSION["error"] = "numero di telefono non valido";
-                                        @redirect("aggiungidocente.php");
+                                        @redirect("aggiungisegretario.php");
                                     }else{
                                         if(trim($residenza)==""){
                                             $_SESSION["error"] = "residenza non valida";
-                                            @redirect("aggiungidocente.php");
+                                            @redirect("aggiungisegretario.php");
+                                        }else{
+                                            if(trim($nomedip )==""){
+                                                $_SESSION["error"] = "nome dipartimeto non valido";
+                                                @redirect("aggiungisegretario.php");
+                                            }
                                         }
                                     }
                                 }
@@ -127,27 +133,27 @@
             
             if (!isset($_SESSION["error"])){
                 $dbConnect = openConnection();
-                $query = "call ".UniNostra.".aggiungiDocente($1,$2,$3,$4,$5,$6,$7)";
+                $query = "call ".UniNostra.".inserisciSegretario($1,$2,$3,$4,$5,$6,$7,$8)";
                 $res = pg_prepare($dbConnect, "", $query);
-                $row = @pg_execute($dbConnect, "", array($nome,$cognome,$email,$psw,$cfu,$residenza,$telefono));
+                $row = @pg_execute($dbConnect, "", array($nome,$cognome,$email,$psw,$cfu,$residenza,$nomedip,$telefono));
 
                 if(!$row){
                     $_SESSION["error"] = parseError(pg_last_error());
                 }else{
-                    $_SESSION["ok"] = "Docente aggiunto con successo!";
+                    $_SESSION["ok"] = "Segretario aggiunto con successo!";
                 }
                 endConnection($dbConnect);
-                @redirect("aggiungidocente.php");
+                @redirect("aggiungisegretario.php");
             }
         
         }
     ?>
 
      <div class = "centroNoBordo">
-        <h1>Aggiungi Docente: </h1>
+        <h1>Aggiungi Segretario: </h1>
     </div>
     <div class="centroForm" id = "elliminaForm" style="margin-top:15px;">
-        <form action="aggiungidocente.php" method="post">
+        <form action="aggiungisegretario.php" method="post">
             <div class="row mb-4">
                 <div class="col">
                     <div class="form-outline">
@@ -191,6 +197,10 @@
                     <div class="col">
                         <label class="form-label" for="residenza">Indririzzo ufficio: </label>
                         <input type="text" id="residenza" class="form-control" name="residenza" required value = "<?php if(isset($_SESSION['arr'])){echo $_SESSION['arr'][7];} ?>"/>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="nomedip">Nome dipartimento: </label>
+                        <input type="text" id="nomedip" class="form-control" name="nomedip" required value = "<?php if(isset($_SESSION['arr'])){echo $_SESSION['arr'][8];} ?>"/>
                     </div>
                 </div>
             </div>

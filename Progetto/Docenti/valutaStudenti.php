@@ -78,7 +78,11 @@
             echo "<div class='alert alert-warning centroS' role='alert'><h4>Non hai valutazioni da assegnare. <a href='valuta.php' class='alert-link'>Visualizza Appelli</a></h4>
             </div>";
           }
+       
         require("../footer.php");
+        if($cont<4){
+          spazioFooter();
+        }
     ?>
      <script>
       $(document).ready(function () {

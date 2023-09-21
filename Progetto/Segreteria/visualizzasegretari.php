@@ -17,59 +17,65 @@
       if (! (isset($_SESSION["idUtente"]))){
         redirect("../login.php");
       }
+
+      if(isset($_SESSION["arr"])){
+        unset($_SESSION["arr"]);
+      }
+
+      if(isset($_SESSION["modificasegretario"])){
+        unset($_SESSION["modificasegretario"]);
+      }
+
+      if (isset($_POST["modificasegretario"])){
+        $_SESSION["modificasegretario"] = $_POST["modificasegretario"];
+        redirect("modificasegretario.php");
+      }
+
+      if( isset($_SESSION["addseg"])){
+        unset( $_SESSION["addseg"]);
+      }
+
+      if(isset($_POST["addseg"])){
+        $_SESSION["addseg"] = $_POST["addseg"];
+        redirect("aggiungisegretario.php");
+      }
+
     ?>
     
     <?php
-      if (isset($_SESSION["cdl"])){
-        unset($_SESSION["cdl"]);
-      }
-
-      if (isset($_POST["cdl"])){
-        $_SESSION["cdl"] = $_POST["cdl"];
-        @redirect("visualizzaPianoStudi.php");
-      }
-
       $connesione = openConnection();
-      $query = "select * from ".UniNostra.".visualizzaTuttiCorsi($1)";
+      $query = "select * from ".UniNostra.".tuttiisegretari($1)";
       $res = pg_prepare($connesione, "", $query);
       $row = pg_execute($connesione, "", array($_SESSION["idUtente"]));
       
     ?>
     <div class = "centroNoBordo">
-        <h1>Corsi di laurea</h1>
+        <h1>Segretari</h1>
     </div>
-    <?php
-        barraRicerca();
-    ?>
+    <div class='input-group centroNoBordoSotto'> 
+            <label class='form-label' for='filtra' style='margin-right:8px;font-size:20px;'>Filtra</label>
+            <input id='filtra' type='text' class='form-control' placeholder='Ricerca..' style='margin-right:2%;'>
+            <label class='form-label' for='adddoc' style='margin-right:8px;font-size:18px;'>Aggiungi Segretario: </label>
+            <?php
+              echo "<form method='post' action='visualizzasegretari.php'><button type='submit' class='btn btn-primary btn-sm' name='addseg' id ='addseg'>Aggiungi</button></form>";
+            ?>
+        </div>
     <div class = "container centroConScritte" id = "elliminaTabella">
       <table class="table coloreTabella table-striped">
         <?php
-           $titoli = array("#","Codice Cdl","Nome","Descrizione","Durata","Attivo","Numero Iscritti","Piano Studi");
+           $titoli = array("#","Nome","Email","Indirizzo","Dipartimento","Cellulare","Modifica");
            creaIntestazione($titoli);
         ?>
         <tbody class="ricerca">
           <?php
               $cont = 1;
-              $query = "select * from ".UniNostra.".numIscrizioniCdl($1)";
               while ($res = pg_fetch_row($row)) {
-                $res2 = pg_prepare($connesione, "", $query);
-                $row2 = pg_fetch_assoc(pg_execute($connesione, "", array($res[0])));
-                $num = $row2["numiscrizionicdl"];
-
-                $button = "<form method='post' action='visualizzaCdl.php'><button type='submit' class='btn btn-primary' name='cdl' value='".$res[0]."'>Visualizza</button></form>";
-                if ($res[3] =="5"){
-                    $res[3] = "Magistrale";
-                }else{
-                    $res[3] = "Triennale";
-                }
-                if ($res[4] =="t"){
-                    $res[4] = "Attivo";
-                }else{
-                    $res[4] = "Non attivo";
-                    $button = "<form method='post' action='visualizzaCdl.php'><button type='submit' class='btn btn-danger' name='cdl' value='".$res[0]."'>Visualizza</button></form>";
-                }
-                array_push($res,$num);
-                array_push($res,$button);
+                $res[1] = $res[1]." ".$res[2];
+                
+                $btn= "<form method='post' action='visualizzasegretari.php'><button type='submit' class='btn btn-primary btn-sm' name='modificasegretario' value='".$res[0]."'>Modifica</button></form>";
+                array_push($res,$btn);
+                unset($res[2]);
+                unset($res[0]);
                 creaColonne($res,$cont);
                 $cont++;
               }  
@@ -102,7 +108,7 @@
     <script src="https://kit.fontawesome.com/3bda55893c.js" crossorigin="anonymous"></script>
     <?php
       require("../footer.php");
-      if ($cont < 6){
+      if($cont <= 5){
         spazioFooter();
       }
     ?>

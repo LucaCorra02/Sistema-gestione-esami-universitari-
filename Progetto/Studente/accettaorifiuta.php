@@ -154,6 +154,9 @@
             </div>";
         }
         require("../footer.php");
+        if ($cont < 6){
+          spazioFooter();
+        }
     ?>
   </body>
 </html>

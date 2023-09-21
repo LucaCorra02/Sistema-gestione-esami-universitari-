@@ -68,6 +68,9 @@
             </div>";
           }
         require("../footer.php");
+        if($cont<5){
+          spazioFooter();
+        }
     ?>
      <script>
       $(document).ready(function () {

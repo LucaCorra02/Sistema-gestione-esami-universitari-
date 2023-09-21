@@ -20,56 +20,44 @@
     ?>
     
     <?php
-      if (isset($_SESSION["cdl"])){
-        unset($_SESSION["cdl"]);
+      if(isset( $_SESSION["nuovapsw"])){
+        unset($_SESSION["nuovapsw"]);
       }
 
-      if (isset($_POST["cdl"])){
-        $_SESSION["cdl"] = $_POST["cdl"];
-        @redirect("visualizzaPianoStudi.php");
+      if(isset($_POST["nuovapsw"])){
+        $_SESSION["nuovapsw"] = $_POST["nuovapsw"];
+        redirect("nuovapsw.php");
       }
 
       $connesione = openConnection();
-      $query = "select * from ".UniNostra.".visualizzaTuttiCorsi($1)";
+      $query = "select * from ".UniNostra.".tuttigliutenti($1)";
       $res = pg_prepare($connesione, "", $query);
       $row = pg_execute($connesione, "", array($_SESSION["idUtente"]));
-      
     ?>
+
     <div class = "centroNoBordo">
-        <h1>Corsi di laurea</h1>
+        <h1>Utenti</h1>
     </div>
-    <?php
-        barraRicerca();
-    ?>
+    <div class='input-group centroNoBordoSotto'> 
+        <label class='form-label' for='filtra' style='margin-right:8px;font-size:20px;'>Filtra</label>
+        <input id='filtra' type='text' class='form-control' placeholder='Ricerca..' style='margin-right:2%;'>        
+    </div>
     <div class = "container centroConScritte" id = "elliminaTabella">
       <table class="table coloreTabella table-striped">
         <?php
-           $titoli = array("#","Codice Cdl","Nome","Descrizione","Durata","Attivo","Numero Iscritti","Piano Studi");
+           $titoli = array("#","Nome","Codice Fiscale","Email","Ruolo","Recupera Password");
            creaIntestazione($titoli);
         ?>
         <tbody class="ricerca">
           <?php
               $cont = 1;
-              $query = "select * from ".UniNostra.".numIscrizioniCdl($1)";
               while ($res = pg_fetch_row($row)) {
-                $res2 = pg_prepare($connesione, "", $query);
-                $row2 = pg_fetch_assoc(pg_execute($connesione, "", array($res[0])));
-                $num = $row2["numiscrizionicdl"];
-
-                $button = "<form method='post' action='visualizzaCdl.php'><button type='submit' class='btn btn-primary' name='cdl' value='".$res[0]."'>Visualizza</button></form>";
-                if ($res[3] =="5"){
-                    $res[3] = "Magistrale";
-                }else{
-                    $res[3] = "Triennale";
-                }
-                if ($res[4] =="t"){
-                    $res[4] = "Attivo";
-                }else{
-                    $res[4] = "Non attivo";
-                    $button = "<form method='post' action='visualizzaCdl.php'><button type='submit' class='btn btn-danger' name='cdl' value='".$res[0]."'>Visualizza</button></form>";
-                }
-                array_push($res,$num);
-                array_push($res,$button);
+                $res[1] = $res[1]." ".$res[2];
+                $modifica = "<form method='post' action='recuperopsw.php'><button type='submit' class='btn btn-primary btn-sm' name='nuovapsw' value='".$res[0]."'>Cambia</button></form>";
+                array_push($res,$modifica);
+                unset($res[5]);
+                unset($res[2]);
+                unset($res[0]);
                 creaColonne($res,$cont);
                 $cont++;
               }  
@@ -101,10 +89,12 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
     <script src="https://kit.fontawesome.com/3bda55893c.js" crossorigin="anonymous"></script>
     <?php
+     
       require("../footer.php");
-      if ($cont < 6){
+      if($cont < 6 ){
         spazioFooter();
       }
+     
     ?>
    
   </body>

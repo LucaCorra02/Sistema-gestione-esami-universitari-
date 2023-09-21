@@ -23,7 +23,7 @@
       $row = pg_query($connesione,$query); 
     ?>
   
-    <div class = "container centroS" id ="elliminaTabella" >
+    <div class = "container centroS" id ="elliminaTabella" style="margin-bottom:100px;">
         <div class= "selezioneCorsoLaurea centroNoBordo">
             <h1>Seleziona Cdl: </h1>
             <select class = "form-select" name="name_selezioneCdl" id="selezioneCdl">
@@ -102,6 +102,9 @@
              });
         });
     </script>
+    <?php
+      require("../footer.php");
+    ?>
      
   </body>
 </html>

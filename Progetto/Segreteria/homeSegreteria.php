@@ -49,6 +49,12 @@
       if(isset($_POST["docenti"])){
         redirect("visualizzadocenti.php");
       }
+      if(isset($_POST["segretari"])){
+        redirect("visualizzasegretari.php");
+      }
+      if(isset($_POST["recupero"])){
+        redirect("recuperopsw.php");
+      }
 
     ?>
     <div class="centroS sfondoSporco" >
@@ -74,6 +80,27 @@
               creaCardColonna("Inserisci Laurea","Visualizza e laurea gli studenti","laurea","fa-solid fa-graduation-cap fa-xl");
               creaCardColonna("Visualizza Ex-Studenti","Visualizza gli ex-studenti","visexstud","fa-solid fa-graduation-cap fa-xl");
               creaCardColonna("Visualizza Docenti","Vedi e Aggiungi aperti i docenti","docenti","fa-solid fa-person-chalkboard fa-xl");
+            ?>
+          </div><br>
+          <div class="row hidden-md-up">
+            <?php
+              creaCardColonna("Visualizza Segretari","Visualizza e aggiungi segretari","segretari","fa-regular fa-chess-king fa-xl");
+              //creaCardColonna("Visualizza Ex-Studenti","Visualizza gli ex-studenti","visexstud","fa-solid fa-graduation-cap fa-xl");
+              echo "<div class='col-md-4'> 
+              <div class='card' style='display: none;'>
+                  <div class='card-block cardTest cardDim'>
+                      <div>
+                          <i class=''></i>
+                          <h4 class='card-title'></h4>
+                      </div>
+                      <p class='card-text p-y-1'></p>
+                      <form method='post'>
+                          <button type='submit' class='btn btn-primary' name='' value=''>Visualizza</button>
+                      </form>
+                  </div>
+              </div>
+             </div>";
+              creaCardColonna("Recupero Password","Vedi e Modifica la password di altri utenti","recupero","fa-solid fa-key fa-xl");
             ?>
           </div><br>
         </div>

@@ -34,6 +34,10 @@
       $res = pg_prepare($connesione, "", $query);
       $row = pg_execute($connesione, "", array($_SESSION["iscrizioni"]));
 
+      $query = "select * from ".UniNostra.".studPartecipantiStorico($1)";   
+      $res2 = pg_prepare($connesione, "", $query);
+      $row2 = pg_execute($connesione, "", array($_SESSION["iscrizioni"]));
+
   
 
     ?>
@@ -67,6 +71,22 @@
                         unset($res[5]);
                         unset($res[2]);
                         creaColonne($res,$cont);
+                        $cont++;
+                    }
+
+                    $cont = 1;
+                    while ($res2 = pg_fetch_row($row2)) {        
+                        $res2[1] = $res2[1]." ".$res2[2];
+                        $res2[0] = bindec($res2[0]);
+
+                        if($res2[5] =="t"){
+                            $res2[4] = $res2[4]." e lode";
+                        }
+                        $btn = "<p style='color:red;'>Ex studente</p>";
+                        array_push($res2,$btn);
+                        unset($res2[5]);
+                        unset($res2[2]);
+                        creaColonne($res2,$cont);
                         $cont++;
                     }
                     endConnection($connesione);  
