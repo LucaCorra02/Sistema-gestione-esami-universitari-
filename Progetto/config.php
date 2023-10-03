@@ -3,5 +3,6 @@
     const port ="5432";
     const dbname = "postgres";
     const username = "postgres";
-    const password ="Dedam456";
+    const password ="XXXXX
+    ";
 ?>
